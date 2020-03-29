@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package slimtest;
+
+message WeightOutMessage {
+    string productClass = 1;
+    float weight = 2;
+}
+

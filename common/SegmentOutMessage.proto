@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package slimtest;
+
+message SegmentOutMessage {
+    string sessionId = 1;
+    string productClass = 2;
+    repeated int32 pointsDistancesBetween = 3;
+}
