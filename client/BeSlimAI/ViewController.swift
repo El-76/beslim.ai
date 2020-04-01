@@ -294,7 +294,7 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
                                 inMessage.segmentOutMessages = self.segmentOutMessages
                                 inMessage.distancesBetween = self.distances
                                 
-                                let url = URL(string: String(format: "http://95.216.150.30:7878/food-proto/weight?debug=1&session_id=%@", self.sessionId))
+                                let url = URL(string: String(format: "http://95.216.150.30:7878/beslim.ai/weight?debug=1&session_id=%@", self.sessionId))
                                 var request = URLRequest(url: url!)
                                 request.httpMethod = "POST"
                                 request.setValue("application/x-protobuf", forHTTPHeaderField: "Content-Type")
