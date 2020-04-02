@@ -1,1 +1,4 @@
 /server/debug/
+.DS_Store
+xcuserdata/
+xcshareddata/
