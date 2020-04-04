@@ -1,0 +1,6 @@
+[machine-learning]
+name=machine-learning
+baseurl=http://developer.download.nvidia.com/compute/machine-learning/repos/rhel7/x86_64
+enabled=1
+gpgcheck=0
+

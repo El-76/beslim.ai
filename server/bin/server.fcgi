@@ -11,6 +11,7 @@ import time
 
 from flup.server.fcgi import WSGIServer
 
+import config
 import maskrcnn
 import unet
 
@@ -35,6 +36,33 @@ models = {
 }
 
 default_model = 'mrcnn'
+
+
+cpus = sorted(tensorflow.config.experimental.list_physical_devices('CPU'))
+gpus = sorted(tensorflow.config.experimental.list_physical_devices('GPU'))
+
+print('Tensorflow CPUs: ' + ', '.join([d.name for d in cpus]))
+print('Tensorflow GPUs: ' + ', '.join([d.name for d in gpus]))
+
+tf_visible_devices = []
+
+if config.tf_devices:
+    for tf_device in config.tf_devices:
+        if tf_device[0] == 'CPU':
+            tf_visible_devices.append(cpus[tf_device[1]])
+
+        if tf_device[0] == 'GPU':
+            tf_visible_devices.append(gpus[tf_device[1]])
+else:
+    if len(gpus) > 0:
+        tf_visible_devices = gpus
+    else:
+        tf_visible_devices = cpus
+
+print('Tensorflow visible devices: ' + ', '.join([d.name for d in tf_visible_devices]))
+
+tensorflow.config.experimental.set_visible_devices(tf_visible_devices)
+
 
 session = tensorflow.compat.v1.Session()
 graph = tensorflow.compat.v1.get_default_graph()
