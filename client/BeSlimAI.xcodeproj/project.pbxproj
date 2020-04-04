@@ -450,6 +450,10 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
+				"$(SRCROOT)/BeslimAI/SegmentInMessage.pb.swift",
+				"$(SRCROOT)/BeSlimAI/SegmentOutMessage.pb.swift",
+				"$(SRCROOT)/BeSlimAI/WeightInMessage.pb.swift",
+				"$(SRCROOT)/BeSlimAI/WeightOutMessage.pb.swift",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
