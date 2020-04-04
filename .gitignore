@@ -4,3 +4,4 @@ xcuserdata/
 xcshareddata/
 *_pb2.py
 *.pb.swift
+__pycache__/
