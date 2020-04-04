@@ -52,10 +52,17 @@ if config.tf_devices:
             tf_visible_devices.append(cpus[tf_device[1]])
 
         if tf_device[0] == 'GPU':
-            tf_visible_devices.append(gpus[tf_device[1]])
+            gpu = gpus[tf_device[1]]
+
+            tf_visible_devices.append(gpu)
+
+            tensorflow.config.experimental.set_memory_growth(gpu, True)
 else:
     if len(gpus) > 0:
         tf_visible_devices = gpus
+
+        for gpu in gpus:
+            tensorflow.config.experimental.set_memory_growth(gpu, True)
     else:
         tf_visible_devices = cpus
 
