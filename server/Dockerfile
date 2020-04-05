@@ -54,7 +54,7 @@ RUN pip3 install --upgrade pip
 
 RUN pip3 install h5py==2.10.0 keras==2.3.1 keras-applications==1.0.8 keras-preprocessing==1.1.0 numpy==1.18.1 pyyaml==5.3 scipy==1.4.1 six==1.14.0
 
-RUN pip3 install absl-py==0.9.0 astor==0.8.1 gast==0.3.3 google-pasta==0.1.8 grpcio==1.27.2 markdown==3.2.1 protobuf==3.6.1 setuptools==45.2.0 tensorboard==1.15.0 tensorflow-gpu==1.15.2 tensorflow-estimator==1.15.1 termcolor==1.1.0 werkzeug==1.0.0 wheel==0.34.2 wrapt==1.12.0
+RUN pip3 install absl-py==0.9.0 astor==0.8.1 gast==0.3.3 google-pasta==0.1.8 grpcio==1.27.2 markdown==3.2.1 protobuf==3.6.1 setuptools==45.2.0 tensorboard==1.14.0 tensorflow-gpu==1.14.0 tensorflow-estimator==1.14.0 termcolor==1.1.0 werkzeug==1.0.0 wheel==0.34.2 wrapt==1.12.0
 
 RUN pip3 install PyWavelets==1.1.1 cycler==0.10.0 decorator==4.4.1 efficientnet==1.0.0 image-classifiers==1.0.0 imageio==2.8.0 kiwisolver==1.1.0 matplotlib==3.1.3 networkx==2.4 pillow==7.0.0 pyparsing==2.4.6 python-dateutil==2.8.1 scikit-image==0.16.2 segmentation-models==1.0.1
 
