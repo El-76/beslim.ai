@@ -6,4 +6,6 @@ message SegmentOutMessage {
     string sessionId = 1;
     string productClass = 2;
     repeated int32 pointsDistancesBetween = 3;
+    int32 time = 4;
+    string model =5;
 }

@@ -181,7 +181,9 @@ def weight():
                 f.write('SegmentOutMessage #{0:d}\n'.format(i))
                 f.write('sessionId: {}\n'.format(segment_out_message.sessionId))
                 f.write('productClass: {}\n'.format(segment_out_message.productClass))
-                f.write('pointsDistancesBetween: ' + ', '.join(['{0:d}'.format(x) for x in segment_out_message.pointsDistancesBetween]) + '\n\n')
+                f.write('pointsDistancesBetween: ' + ', '.join(['{0:d}'.format(x) for x in segment_out_message.pointsDistancesBetween]) + '\n')
+                f.write('time: {0:.3f}s\n'.format(segment_out_message.time / 1000.0))
+                f.write('model: {}\n\n'.format(segment_out_message.model))
 
             f.write('WeightInMessage\n')
             f.write('distancesBetween: ' + ', '.join(['{0:.3f}'.format(x) for x in message.distancesBetween]) + '\n\n')
@@ -220,13 +222,19 @@ def segment():
     else:
         debug_files = None
 
+    start = int(time.time() * 1000.0)
+
     product_class, points_distances_between = classify(image, session, graph, debug_files=debug_files)
+
+    duration = int(time.time() * 1000.0) - start
 
     message = SegmentOutMessage_pb2.SegmentOutMessage()
 
     message.sessionId = session_id
     message.productClass = product_class
     message.pointsDistancesBetween.extend(points_distances_between)
+    message.time = duration
+    message.model = model
 
     return flask.Response(response=message.SerializeToString(), status=200, mimetype='application/x-protobuf')
 
