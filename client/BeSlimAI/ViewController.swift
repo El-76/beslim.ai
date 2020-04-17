@@ -113,6 +113,8 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         
         // Show statistics such as fps and timing information
         sceneView.showsStatistics = false
+        
+        restart();
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -224,7 +226,7 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
                 
         var inMessage = Slimtest_WeightInMessage();
                 
-        inMessage.segmentOutMessages = segmentOutMessages.messages
+        inMessage.segmentOutMessages = segmentOutMessages
         inMessage.distancesBetween = distances
                 
         let url = URL(string: String(format: "http://%@:7878/beslim.ai/weight?debug=1&session_id=%@", self.host, self.sessionId))
