@@ -154,7 +154,9 @@ def weight():
 
     message.ParseFromString(flask.request.get_data(cache=False))
 
-    product_classes = [segment_out_message.productClass for segment_out_message in message.segmentOutMessages.messages]
+    segment_out_messages = message.segmentOutMessages
+
+    product_classes = [segment_out_message.productClass for segment_out_message in segment_out_messages.messages]
 
     product_class = product_classes[0] if len(set(product_classes)) == 1 else 'Unknown'
     attempts = len(product_classes)
@@ -181,7 +183,7 @@ def weight():
         with open(debug_file, 'w') as f:
             f.write('SegmentOutMessages\n')
             f.write('sessionId: {}\n'.format(segment_out_messages.sessionId))
-            f.write('time: {0:.3f}s\n\n'.format(segment_out_message.time / 1000.0))
+            f.write('time: {0:.3f}s\n\n'.format(segment_out_messages.time / 1000.0))
 
             for i, segment_out_message in enumerate(message.segmentOutMessages.messages):
                 f.write('SegmentOutMessage #{0:d}\n'.format(i))
@@ -238,14 +240,19 @@ def segment():
 
     messages.sessionId = session_id
 
+    m = []
     for product_class, points_distances_between in classification_result:
         message = SegmentOutMessage_pb2.SegmentOutMessage()
 
         message.productClass = product_class
         message.pointsDistancesBetween.extend(points_distances_between)
 
+        m.append(message)
+
     messages.time = duration
     messages.model = model
+
+    messages.messages.extend(m)
 
     return flask.Response(response=messages.SerializeToString(), status=200, mimetype='application/x-protobuf')
 
