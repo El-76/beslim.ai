@@ -154,7 +154,7 @@ def weight():
 
     message.ParseFromString(flask.request.get_data(cache=False))
 
-    product_classes = [segment_out_message.productClass for segment_out_message in message.segmentOutMessages]
+    product_classes = [segment_out_message.productClass for segment_out_message in message.segmentOutMessages.messages]
 
     product_class = product_classes[0] if len(set(product_classes)) == 1 else 'Unknown'
     attempts = len(product_classes)
@@ -164,8 +164,10 @@ def weight():
         width = 0.0
         height = 0.0
         for i in range(0, len(message.distancesBetween), 2):
+            # TODO: check for -1.0
             width += message.distancesBetween[i]
             height += message.distancesBetween[i + 1]
+
         width /= attempts
         height /= attempts
 
@@ -177,13 +179,14 @@ def weight():
         debug_file = os.path.join(var_run_path, 'debug', '{}.txt'.format(session_id))
 
         with open(debug_file, 'w') as f:
-            for i, segment_out_message in enumerate(message.segmentOutMessages):
+            f.write('SegmentOutMessages\n')
+            f.write('sessionId: {}\n'.format(segment_out_messages.sessionId))
+            f.write('time: {0:.3f}s\n\n'.format(segment_out_message.time / 1000.0))
+
+            for i, segment_out_message in enumerate(message.segmentOutMessages.messages):
                 f.write('SegmentOutMessage #{0:d}\n'.format(i))
-                f.write('sessionId: {}\n'.format(segment_out_message.sessionId))
                 f.write('productClass: {}\n'.format(segment_out_message.productClass))
-                f.write('pointsDistancesBetween: ' + ', '.join(['{0:d}'.format(x) for x in segment_out_message.pointsDistancesBetween]) + '\n')
-                f.write('time: {0:.3f}s\n'.format(segment_out_message.time / 1000.0))
-                f.write('model: {}\n\n'.format(segment_out_message.model))
+                f.write('pointsDistancesBetween: ' + ', '.join(['{0:d}'.format(x) for x in segment_out_message.pointsDistancesBetween]) + '\n\n')
 
             f.write('WeightInMessage\n')
             f.write('distancesBetween: ' + ', '.join(['{0:.3f}'.format(x) for x in message.distancesBetween]) + '\n\n')
@@ -203,40 +206,48 @@ def weight():
 def segment():
     session_id = flask.request.args.get('session_id', '{}-{}-{}'.format(int(time.time()), get_ip(), os.getpid()))
     debug = flask.request.args.get('debug', '0')
-    attempt = flask.request.args.get('attempt', '0')
     model = flask.request.args.get('model', default_model)
 
     classify = models.get(model, {'classify': stub_classify})['classify']
 
-    message = SegmentInMessage_pb2.SegmentInMessage()
+    messages = SegmentInMessage_pb2.SegmentInMessages()
 
-    message.ParseFromString(flask.request.get_data(cache=False))
-
-    image = message.photo
-
-    if debug == '1':
-        debug_orig_image_file = os.path.join(var_run_path, 'debug', '{}-{}.png'.format(session_id, attempt))
-        debug_class_image_file = os.path.join(var_run_path, 'debug', '{}-{}-class.png'.format(session_id, attempt))
-
-        debug_files = (debug_orig_image_file, debug_class_image_file)
-    else:
-        debug_files = None
+    messages.ParseFromString(flask.request.get_data(cache=False))
 
     start = int(time.time() * 1000.0)
 
-    product_class, points_distances_between = classify(image, session, graph, debug_files=debug_files)
+    classification_result = []
+    for attempt, message in enumerate(messages.messages):
+        image = message.photo
+
+        if debug == '1':
+            debug_orig_image_file = os.path.join(var_run_path, 'debug', '{}-{}.png'.format(session_id, attempt))
+            debug_class_image_file = os.path.join(var_run_path, 'debug', '{}-{}-class.png'.format(session_id, attempt))
+
+            debug_files = (debug_orig_image_file, debug_class_image_file)
+        else:
+            debug_files = None
+
+        product_class, points_distances_between = classify(image, session, graph, debug_files=debug_files)
+
+        classification_result.append((product_class, points_distances_between,))
 
     duration = int(time.time() * 1000.0) - start
 
-    message = SegmentOutMessage_pb2.SegmentOutMessage()
+    messages = SegmentOutMessage_pb2.SegmentOutMessages()
 
-    message.sessionId = session_id
-    message.productClass = product_class
-    message.pointsDistancesBetween.extend(points_distances_between)
-    message.time = duration
-    message.model = model
+    messages.sessionId = session_id
 
-    return flask.Response(response=message.SerializeToString(), status=200, mimetype='application/x-protobuf')
+    for product_class, points_distances_between in classification_result:
+        message = SegmentOutMessage_pb2.SegmentOutMessage()
+
+        message.productClass = product_class
+        message.pointsDistancesBetween.extend(points_distances_between)
+
+    messages.time = duration
+    messages.model = model
+
+    return flask.Response(response=messages.SerializeToString(), status=200, mimetype='application/x-protobuf')
 
 @application.route('/ping', methods=['GET', 'POST'])
 def ping():

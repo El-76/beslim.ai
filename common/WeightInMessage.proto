@@ -5,7 +5,7 @@ import "SegmentOutMessage.proto";
 package slimtest;
 
 message WeightInMessage {
-    repeated SegmentOutMessage segmentOutMessages = 1;
+    SegmentOutMessages segmentOutMessages = 1;
     
     repeated float distancesBetween = 3;
 }
