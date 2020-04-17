@@ -6,3 +6,7 @@ message SegmentInMessage {
     bytes photo = 1;
 }
 
+message SegmentInMessages {
+    repeated SegmentInMessage messages = 1;
+}
+

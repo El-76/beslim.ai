@@ -3,9 +3,13 @@ syntax = "proto3";
 package slimtest;
 
 message SegmentOutMessage {
+    string productClass = 1;
+    repeated int32 pointsDistancesBetween = 2;
+    int32 time = 3;
+    string model = 4;
+}
+
+message SegmentOutMessages {
     string sessionId = 1;
-    string productClass = 2;
-    repeated int32 pointsDistancesBetween = 3;
-    int32 time = 4;
-    string model =5;
+    repeated SegmentOutMessage messages = 2;
 }
