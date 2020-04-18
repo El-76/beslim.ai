@@ -1,8 +1,0 @@
-syntax = "proto3";
-
-package slimtest;
-
-message SegmentInMessage {
-    bytes photo = 1;
-}
-

@@ -1,12 +1,21 @@
 syntax = "proto3";
 
-import "SegmentOutMessage.proto";
+package beslim.ai;
 
-package slimtest;
+message Coords {
+    int32 vx = 1;
+    int32 vy = 2;
+    float x = 3;
+    float y = 4;
+    float z = 5;
+}
+
+message Snapshot {
+    bytes photo = 1;
+    repeated Coords grid = 2;
+}
 
 message WeightInMessage {
-    repeated SegmentOutMessage segmentOutMessages = 1;
-    
-    repeated float distancesBetween = 3;
+    repeated Snapshot snapshots = 1;
 }
 

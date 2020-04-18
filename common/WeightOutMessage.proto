@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package slimtest;
+package beslim.ai;
 
 message WeightOutMessage {
     string productClass = 1;

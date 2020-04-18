@@ -12,11 +12,21 @@ import ARKit
 import VideoToolbox
 
 class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
+    
+    enum State {
+        case stopped
+        case mappingWorld
+        case takingSnapshot
+        case weighting
+    }
+    
     @IBOutlet var sceneView: ARSCNView!
     @IBOutlet weak var recognizeButton: UIButton!
     @IBOutlet weak var progressUIView: UIView!
     @IBOutlet weak var progressView: UIProgressView!
     @IBOutlet weak var statusLabel: UILabel!
+    
+    fileprivate var snapshots: [Beslim_Ai_Snapshot] = Array<Beslim_Ai_Snapshot>()
     
     @IBAction func recognize(_ sender: Any) {
         if state == State.stopped {
@@ -25,7 +35,7 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
             progressView.setProgress(0.0, animated: false)
             progressUIView.isHidden = false
             
-            state = State.gatheringPoints
+            state = State.mappingWorld
             
             sceneView.session.pause()
             
@@ -44,46 +54,30 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         
         self.finishedAttempts = 0
         
-        self.sessionId = ""
+        self.lastSnapshotTime = 0
         
-        self.segmentOutMessages.removeAll()
-        self.distances.removeAll()
+        self.snapshots.removeAll()
         
-        self.statusLabel.text = String(format: "Recognition 1 of %d...", self.attempts)
-    }
-    
-    enum State {
-        case stopped
-        case gatheringPoints
-        case waitingForServer
-        case weighting
+        self.statusLabel.text = String(format: "Mapping world...", self.attempts)
     }
 
     fileprivate var state: State! = State.stopped
-    fileprivate let attempts: Int = 3
+    fileprivate let attempts: Int = 10
+    fileprivate let gridStep: Int = 10
+    fileprivate let interval: Int = 500
     fileprivate var finishedAttempts: Int = 0
-    fileprivate let threshold: Int = 0
-    fileprivate var sessionId: String = ""
     fileprivate let host = "193.106.92.67"
     //fileprivate let host = "95.216.150.30"
     
     fileprivate var text: SCNText!
-    fileprivate var textNode: SCNNode!
-    fileprivate var distance: Float!
-    //fileprivate var className: String!
-    //fileprivate var coordinates: [Int32]!
-    fileprivate var isClassifying: Bool!
     
-    fileprivate var segmentOutMessages: [Slimtest_SegmentOutMessage] = Array<Slimtest_SegmentOutMessage>()
-    fileprivate var distances: [Float] = Array<Float>()
+    fileprivate var lastSnapshotTime: Int!
     
     //fileprivate let debugOptions: ARSCNDebugOptions = [ARSCNDebugOptions.showFeaturePoints]
     fileprivate let debugOptions: ARSCNDebugOptions = []
     
-    //fileprivate var state: UIAlertController!
-    
     override var supportedInterfaceOrientations : UIInterfaceOrientationMask {
-        if self.state == State.waitingForServer {
+        if self.state != State.stopped {
             if UIApplication.shared.statusBarOrientation == UIInterfaceOrientation.landscapeLeft {
                 return UIInterfaceOrientationMask.landscapeLeft;
             } else if UIApplication.shared.statusBarOrientation == UIInterfaceOrientation.landscapeRight {
@@ -114,32 +108,7 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         // Show statistics such as fps and timing information
         sceneView.showsStatistics = false
         
-        
-        text = SCNText(string: "", extrusionDepth: 0.1)
-        text.font = .systemFont(ofSize: 5)
-        text.firstMaterial?.diffuse.contents = UIColor.blue
-        text.alignmentMode  = CATextLayerAlignmentMode.center.rawValue
-        text.truncationMode = CATextLayerTruncationMode.middle.rawValue
-        text.firstMaterial?.isDoubleSided = true
-        
-        let textWrapperNode = SCNNode(geometry: text)
-        textWrapperNode.eulerAngles = SCNVector3Make(0, .pi, 0)
-        textWrapperNode.scale = SCNVector3(1/500.0, 1/500.0, 1/500.0)
-        
-        textNode = SCNNode()
-        textNode.addChildNode(textWrapperNode)
-        let constraint = SCNLookAtConstraint(target: sceneView.pointOfView)
-        constraint.isGimbalLockEnabled = true
-        textNode.constraints = [constraint]
-        sceneView.scene.rootNode.addChildNode(textNode)
-        
-        distance = Float()
-        
-        //state = UIAlertController(title: nil, message: "Waiting...", preferredStyle: .alert)
-        
-        isClassifying = false
-        
-        statusLabel.text = String(format: "Recognition 1 of %d...", attempts)
+        restart();
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -154,205 +123,172 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         // Pause the view's session
         sceneView.session.pause()
     }
-
-    func distanceTo(to: CGPoint) -> Float? {
-        let results = self.sceneView.hitTest(to, types: [.featurePoint])
-        guard let result = results.first else { return Float(-1) }
-        
-        return Float(result.distance)
-    }
     
     func resumeSession() {
         let configuration = ARWorldTrackingConfiguration()
-
-        // Detect horizontal planes in the scene
-        //configuration.planeDetection = .horizontal
         
         // Restart the view's session
         self.sceneView.session.run(configuration, options: [ARSession.RunOptions.resetTracking, ARSession.RunOptions.removeExistingAnchors])
         
-        //self.sceneView.debugOptions = self.debugOptions
-        
-        self.isClassifying = false;
+        self.sceneView.debugOptions = self.debugOptions
     }
   
-    // MARK: - ARSessionDelegate
-    func session(_ session: ARSession, didUpdate frame: ARFrame) {
-        if (state == State.gatheringPoints) {
-            if ((frame.rawFeaturePoints?.points.count ?? 0) >= threshold && frame.worldMappingStatus == .mapped) {
-                state = State.waitingForServer
-                
-                //sceneView.debugOptions = []
-                
-                sceneView.session.pause()
-                
-                let orientation = UIApplication.shared.statusBarOrientation
-                let viewportSize = sceneView.snapshot().size
-                let viewSize = sceneView.bounds.size
-                //let vSize = view.bounds.size
-                let vSize = sceneView.bounds.size
-                
-                var ciimage = CIImage(cvPixelBuffer: frame.capturedImage)
+    func takeSnapshot(frame: ARFrame) -> Bool {
+        let orientation = UIApplication.shared.statusBarOrientation
 
-                let imageSize = ciimage.extent.size
-                
-                let transform = frame.displayTransform(for: orientation, viewportSize: vSize).inverted()
-                ciimage = ciimage.transformed(by: transform)
+        let vSize = sceneView.bounds.size
+        
+        var ciimage = CIImage(cvPixelBuffer: frame.capturedImage)
+        
+        let transform = frame.displayTransform(for: orientation, viewportSize: vSize).inverted()
+        ciimage = ciimage.transformed(by: transform)
 
-                let context = CIContext(options: nil)
-                //guard let cameraImage = context.createCGImage(ciimage, from: ciimage.extent) else { return }
+        let cameraImage = sceneView.snapshot().cgImage
+        
+        let c = CGContext(data: nil, width: Int(vSize.width), height: Int(vSize.height), bitsPerComponent: cameraImage!.bitsPerComponent, bytesPerRow: cameraImage!.bytesPerRow, space: cameraImage!.colorSpace!, bitmapInfo: cameraImage!.bitmapInfo.rawValue)
+        
+        c!.draw(cameraImage!, in: CGRect(origin: CGPoint.zero, size: vSize))
+        
+        guard let ccImage = c!.makeImage() else {
+            return false
+        }
+        
+        let uiimage = UIImage(cgImage: ccImage);
 
-                let cameraImage = sceneView.snapshot().cgImage
-                
-                let c = CGContext(data: nil, width: Int(vSize.width), height: Int(vSize.height), bitsPerComponent: cameraImage!.bitsPerComponent, bytesPerRow: cameraImage!.bytesPerRow, space: cameraImage!.colorSpace!, bitmapInfo: cameraImage!.bitmapInfo.rawValue)
-                
-                c!.draw(cameraImage!, in: CGRect(origin: CGPoint.zero, size: vSize))
-                
-                guard let ccImage = c!.makeImage() else { return }
-                
-                let uiimage = UIImage(cgImage: ccImage);
-
-                
-                guard let data = uiimage.pngData() else {
-                    return;
-                }
-                
-//                guard let data = sceneView.snapshot().pngData() else {
-//                    return
-//                }
-                
-                var inMessage = Slimtest_SegmentInMessage();
-                
-                inMessage.photo = data;
-                
-                let url = URL(string: String(format: "http://%@:7878/beslim.ai/segment?debug=1&attempt=%d", self.host, self.finishedAttempts) + (self.sessionId == "" ? "" : "&session_id=" + self.sessionId))
-                var request = URLRequest(url: url!)
-                request.httpMethod = "POST"
-                request.setValue("application/x-protobuf", forHTTPHeaderField: "Content-Type")
-                guard ((try? request.httpBody = inMessage.serializedData()) != nil) else {
-                    return
-                }
-                
-                let task = URLSession.shared.dataTask(with: request) {
-                    (data, response, error) in
-                        guard error == nil else {
-                            return
-                        }
-
-                        guard let data = data else {
-                            return
-                        }
-                        
-                        let outMessage = try? Slimtest_SegmentOutMessage(serializedData: data)
-                        guard outMessage != nil else {
-                            return
-                        }
-                        
-                    let pointsDistancesBetween = outMessage!.pointsDistancesBetween
-                        
-                    // TODO: rewrite - stopped task may overwrite session id!!!
-                    self.sessionId = outMessage!.sessionID
+        guard let photo = uiimage.pngData() else {
+            return false
+        }
+        
+        var grid = Array<Beslim_Ai_Coords>()
+        
+        let startX = Int(vSize.width / 2) % gridStep
+        let startY = Int(vSize.height / 2) % gridStep
+        for x in stride(from: startX, to: Int(vSize.width), by: gridStep) {
+            for y in stride(from: startY, to: Int(vSize.height), by: gridStep) {
+                let htest = self.sceneView.hitTest(CGPoint(x: x, y: y), types: [.featurePoint]).first
+    
+                if (htest != nil) {
+                    var coords = Beslim_Ai_Coords()
                     
-                        DispatchQueue.main.async {
-                                var retry = false
-                                var distances = Array<Float>()
-                                for i in stride(from: 0, to: pointsDistancesBetween.count, by: 4) {
-                                    let p1X = Double(pointsDistancesBetween[i])
-                                    let p1Y = Double(pointsDistancesBetween[i + 1])
-                                    let p2X = Double(pointsDistancesBetween[i + 2])
-                                    let p2Y = Double(pointsDistancesBetween[i + 3])
-                                    
-                                    let htest1 = self.sceneView.hitTest(CGPoint(x: p1X, y: p1Y), types: [.featurePoint]).first
-                                    let htest2 = self.sceneView.hitTest(CGPoint(x: p2X, y: p2Y), types: [.featurePoint]).first
-                                    
-                                    if (htest1 != nil && htest2 != nil) {
-                                        let distanceX = htest1!.worldTransform.columns.3.x - htest2!.worldTransform.columns.3.x
-                                        let distanceY = htest1!.worldTransform.columns.3.y - htest2!.worldTransform.columns.3.y
-                                        let distanceZ = htest1!.worldTransform.columns.3.z - htest2!.worldTransform.columns.3.z
-                                               
-                                        let distance = sqrtf((distanceX * distanceX) + (distanceY * distanceY) + (distanceZ * distanceZ))
-                                        
-                                        distances.append(distance)
-                                    } else {
-                                        retry = true
-                                        
-                                        break
-                                    }
-                                }
-                            
-                                if (!retry) {
-                                    self.segmentOutMessages.append(outMessage!)
-                                    self.distances += distances
-                                    
-                                    self.finishedAttempts += 1
-                                self.progressView.setProgress(Float(self.finishedAttempts) / Float(self.attempts), animated: true)
-                                }
-                            
-                            if (self.finishedAttempts == self.attempts) {
-                                self.state = State.weighting
-                                
-                                var inMessage = Slimtest_WeightInMessage();
-                                
-                                inMessage.segmentOutMessages = self.segmentOutMessages
-                                inMessage.distancesBetween = self.distances
-                                
-                                let url = URL(string: String(format: "http://%@:7878/beslim.ai/weight?debug=1&session_id=%@", self.host, self.sessionId))
-                                var request = URLRequest(url: url!)
-                                request.httpMethod = "POST"
-                                request.setValue("application/x-protobuf", forHTTPHeaderField: "Content-Type")
-                                guard ((try? request.httpBody = inMessage.serializedData()) != nil) else {
-                                    return
-                                }
-                                
-                                let task = URLSession.shared.dataTask(with: request) {
-                                    (data, response, error) in
-                                        guard error == nil else {
-                                            return
-                                        }
-
-                                        guard let data = data else {
-                                            return
-                                        }
-                                    
-                                    let outMessage = try? Slimtest_WeightOutMessage(serializedData: data)
-                                    guard outMessage != nil else {
-                                        return
-                                    }
-                                    
-                                    let productClass = outMessage!.productClass
-                                    let weight = outMessage!.weight
-                                    
-                                    DispatchQueue.main.async {
-                                        self.restart()
-                                        
-                                        var text = String(format: "Product: %@", productClass)
-                                        
-                                        if productClass != "Unknown" {
-                                            text += String(format: "\nEstimated weight: %.0fg", weight)
-                                        }
-                                        
-                                        let alert = UIAlertController(title: "Recognition result", message: text, preferredStyle: .alert)
-
-                                        alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
-
-                                        self.present(alert, animated: true)
-                                    }
-                                }
-                                
-                                task.resume()
-                            } else {
-                                self.state = State.gatheringPoints
-                                
-                                self.statusLabel.text = String(format: "Recognition %d of %d...", self.finishedAttempts + 1, self.attempts)
-                            }
-                            
-                            self.resumeSession()
-                        }
-                    }
+                    coords.vx = Int32(x);
+                    coords.vy = Int32(y);
                     
-                    task.resume()
+                    coords.x = htest!.worldTransform.columns.3.x
+                    coords.y = htest!.worldTransform.columns.3.y
+                    coords.z = htest!.worldTransform.columns.3.z
+                    
+                    grid.append(coords)
                 }
             }
+        }
+        
+        var snapshot = Beslim_Ai_Snapshot()
+        
+        snapshot.photo = photo
+        snapshot.grid = grid
+        
+        self.snapshots.append(snapshot);
+        
+        return true;
+    }
+    
+    func requestWeight() {
+        self.state = State.weighting
+                
+        var inMessage = Beslim_Ai_WeightInMessage()
+                
+        inMessage.snapshots = self.snapshots
+                
+        let url = URL(string: String(format: "http://%@:7878/beslim.ai/weight?debug=1", self.host))
+        var request = URLRequest(url: url!)
+        request.httpMethod = "POST"
+        request.setValue("application/x-protobuf", forHTTPHeaderField: "Content-Type")
+        guard ((try? request.httpBody = inMessage.serializedData()) != nil) else {
+            return
+        }
+                
+        let task = URLSession.shared.dataTask(with: request) {
+            (data, response, error) in
+            
+            guard error == nil else {
+                return
+            }
+
+            guard let data = data else {
+                return
+            }
+                    
+            let outMessage = try? Beslim_Ai_WeightOutMessage(serializedData: data)
+            guard outMessage != nil else {
+                return
+            }
+                    
+            let productClass = outMessage!.productClass
+            let weight = outMessage!.weight
+                    
+            DispatchQueue.main.async {
+                self.statusLabel.text = "Recognized"
+                
+                self.progressView.setProgress(
+                    Float(self.attempts + 2) / Float(self.attempts + 2), animated: true)
+                
+                self.restart()
+                        
+                var text = String(format: "Product: %@", productClass)
+                        
+                if productClass != "Unknown" {
+                    text += String(format: "\nEstimated weight: %.0fg", weight)
+                }
+                        
+                let alert = UIAlertController(
+                    title: "Recognition result", message: text, preferredStyle: .alert)
+
+                alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
+
+                self.present(alert, animated: true)
+            }
+        }
+                
+        task.resume()
+    }
+     
+    // MARK: - ARSessionDelegate
+    func session(_ session: ARSession, didUpdate frame: ARFrame) {
+        if (state == State.mappingWorld) {
+            let snapshotTime = Int(Date().timeIntervalSince1970 * 1000)
+            if (frame.worldMappingStatus == .mapped && snapshotTime - lastSnapshotTime >= interval) {
+                state = State.takingSnapshot
+                
+                self.statusLabel.text = String(
+                    format: "Taking snapshot %d of %d...", self.finishedAttempts + 1, self.attempts)
+                
+                let result = self.takeSnapshot(frame: frame)
+            
+                self.state = State.mappingWorld
+                
+                if (!result) {
+                    return;
+                }
+                                        
+                self.lastSnapshotTime = snapshotTime
+                    
+                self.finishedAttempts += 1
+                    
+                self.progressView.setProgress(
+                    Float(self.finishedAttempts) / Float(self.attempts + 2), animated: true)
+                    
+                if (self.finishedAttempts == self.attempts) {
+                    self.state = State.weighting;
+                    
+                    self.statusLabel.text = "Weighting..."
+                    
+                    self.progressView.setProgress(
+                        Float(self.attempts + 1) / Float(self.attempts + 2), animated: true)
+                    
+                    self.requestWeight();
+                }
+            }
+        }
     }
     
     // MARK: - ARSCNViewDelegate

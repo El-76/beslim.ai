@@ -9,8 +9,8 @@
 /* Begin PBXBuildFile section */
 		3A6DD4D82420D95E006D7049 /* WeightInMessage.proto in Sources */ = {isa = PBXBuildFile; fileRef = 3A6DD4D72420D95E006D7049 /* WeightInMessage.proto */; };
 		3A6DD4E02420D990006D7049 /* WeightOutMessage.proto in Sources */ = {isa = PBXBuildFile; fileRef = 3A6DD4DF2420D990006D7049 /* WeightOutMessage.proto */; };
-		3A6DD4E32420DA0E006D7049 /* WeightInMessage.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A6DD4E12420DA0D006D7049 /* WeightInMessage.pb.swift */; };
-		3A6DD4E42420DA0E006D7049 /* WeightOutMessage.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A6DD4E22420DA0E006D7049 /* WeightOutMessage.pb.swift */; };
+		3A73EE36244B5FC5006A7657 /* WeightOutMessage.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A73EE34244B5FC5006A7657 /* WeightOutMessage.pb.swift */; };
+		3A73EE37244B5FC5006A7657 /* WeightInMessage.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A73EE35244B5FC5006A7657 /* WeightInMessage.pb.swift */; };
 		3A77DBC42407E89F00FD7BC1 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A77DBC32407E89F00FD7BC1 /* AppDelegate.swift */; };
 		3A77DBC62407E89F00FD7BC1 /* art.scnassets in Resources */ = {isa = PBXBuildFile; fileRef = 3A77DBC52407E89F00FD7BC1 /* art.scnassets */; };
 		3A77DBC82407E89F00FD7BC1 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A77DBC72407E89F00FD7BC1 /* ViewController.swift */; };
@@ -21,10 +21,6 @@
 		3A77DBE62407E8A100FD7BC1 /* BeSlimAIUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A77DBE52407E8A100FD7BC1 /* BeSlimAIUITests.swift */; };
 		3A77DC132409123700FD7BC1 /* SwiftProtobuf.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3A77DC06240904A600FD7BC1 /* SwiftProtobuf.framework */; };
 		3A77DC142409123700FD7BC1 /* SwiftProtobuf.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 3A77DC06240904A600FD7BC1 /* SwiftProtobuf.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		3A77DC17240D13D000FD7BC1 /* SegmentInMessage.proto in Sources */ = {isa = PBXBuildFile; fileRef = 3A77DC16240D13D000FD7BC1 /* SegmentInMessage.proto */; };
-		3A77DC19240D144F00FD7BC1 /* SegmentInMessage.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A77DC18240D144F00FD7BC1 /* SegmentInMessage.pb.swift */; };
-		3A77DC1B240D269100FD7BC1 /* SegmentOutMessage.proto in Sources */ = {isa = PBXBuildFile; fileRef = 3A77DC1A240D269100FD7BC1 /* SegmentOutMessage.proto */; };
-		3A77DC1D240D307B00FD7BC1 /* SegmentOutMessage.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A77DC1C240D307B00FD7BC1 /* SegmentOutMessage.pb.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -117,8 +113,8 @@
 /* Begin PBXFileReference section */
 		3A6DD4D72420D95E006D7049 /* WeightInMessage.proto */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.protobuf; path = WeightInMessage.proto; sourceTree = "<group>"; };
 		3A6DD4DF2420D990006D7049 /* WeightOutMessage.proto */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.protobuf; path = WeightOutMessage.proto; sourceTree = "<group>"; };
-		3A6DD4E12420DA0D006D7049 /* WeightInMessage.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WeightInMessage.pb.swift; sourceTree = "<group>"; };
-		3A6DD4E22420DA0E006D7049 /* WeightOutMessage.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WeightOutMessage.pb.swift; sourceTree = "<group>"; };
+		3A73EE34244B5FC5006A7657 /* WeightOutMessage.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WeightOutMessage.pb.swift; sourceTree = "<group>"; };
+		3A73EE35244B5FC5006A7657 /* WeightInMessage.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WeightInMessage.pb.swift; sourceTree = "<group>"; };
 		3A77DBC02407E89F00FD7BC1 /* BeSlimAI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BeSlimAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3A77DBC32407E89F00FD7BC1 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		3A77DBC52407E89F00FD7BC1 /* art.scnassets */ = {isa = PBXFileReference; lastKnownFileType = wrapper.scnassets; path = art.scnassets; sourceTree = "<group>"; };
@@ -134,10 +130,6 @@
 		3A77DBE52407E8A100FD7BC1 /* BeSlimAIUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeSlimAIUITests.swift; sourceTree = "<group>"; };
 		3A77DBE72407E8A100FD7BC1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		3A77DBF7240904A600FD7BC1 /* SwiftProtobuf.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = SwiftProtobuf.xcodeproj; path = "../../Protobuf/swift-protobuf/SwiftProtobuf.xcodeproj"; sourceTree = "<group>"; };
-		3A77DC16240D13D000FD7BC1 /* SegmentInMessage.proto */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.protobuf; path = SegmentInMessage.proto; sourceTree = "<group>"; };
-		3A77DC18240D144F00FD7BC1 /* SegmentInMessage.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SegmentInMessage.pb.swift; sourceTree = "<group>"; };
-		3A77DC1A240D269100FD7BC1 /* SegmentOutMessage.proto */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.protobuf; path = SegmentOutMessage.proto; sourceTree = "<group>"; };
-		3A77DC1C240D307B00FD7BC1 /* SegmentOutMessage.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SegmentOutMessage.pb.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -191,12 +183,8 @@
 		3A77DBC22407E89F00FD7BC1 /* BeSlimAI */ = {
 			isa = PBXGroup;
 			children = (
-				3A6DD4E12420DA0D006D7049 /* WeightInMessage.pb.swift */,
-				3A6DD4E22420DA0E006D7049 /* WeightOutMessage.pb.swift */,
-				3A77DC1C240D307B00FD7BC1 /* SegmentOutMessage.pb.swift */,
-				3A77DC1A240D269100FD7BC1 /* SegmentOutMessage.proto */,
-				3A77DC18240D144F00FD7BC1 /* SegmentInMessage.pb.swift */,
-				3A77DC16240D13D000FD7BC1 /* SegmentInMessage.proto */,
+				3A73EE35244B5FC5006A7657 /* WeightInMessage.pb.swift */,
+				3A73EE34244B5FC5006A7657 /* WeightOutMessage.pb.swift */,
 				3A77DBC32407E89F00FD7BC1 /* AppDelegate.swift */,
 				3A77DBC52407E89F00FD7BC1 /* art.scnassets */,
 				3A77DBC72407E89F00FD7BC1 /* ViewController.swift */,
@@ -450,8 +438,6 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(SRCROOT)/BeslimAI/SegmentInMessage.pb.swift",
-				"$(SRCROOT)/BeSlimAI/SegmentOutMessage.pb.swift",
 				"$(SRCROOT)/BeSlimAI/WeightInMessage.pb.swift",
 				"$(SRCROOT)/BeSlimAI/WeightOutMessage.pb.swift",
 			);
@@ -467,15 +453,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				3A77DBC82407E89F00FD7BC1 /* ViewController.swift in Sources */,
-				3A77DC17240D13D000FD7BC1 /* SegmentInMessage.proto in Sources */,
+				3A73EE37244B5FC5006A7657 /* WeightInMessage.pb.swift in Sources */,
 				3A6DD4D82420D95E006D7049 /* WeightInMessage.proto in Sources */,
 				3A77DBC42407E89F00FD7BC1 /* AppDelegate.swift in Sources */,
-				3A6DD4E32420DA0E006D7049 /* WeightInMessage.pb.swift in Sources */,
-				3A77DC1B240D269100FD7BC1 /* SegmentOutMessage.proto in Sources */,
 				3A6DD4E02420D990006D7049 /* WeightOutMessage.proto in Sources */,
-				3A77DC19240D144F00FD7BC1 /* SegmentInMessage.pb.swift in Sources */,
-				3A77DC1D240D307B00FD7BC1 /* SegmentOutMessage.pb.swift in Sources */,
-				3A6DD4E42420DA0E006D7049 /* WeightOutMessage.pb.swift in Sources */,
+				3A73EE36244B5FC5006A7657 /* WeightOutMessage.pb.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
