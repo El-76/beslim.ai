@@ -77,7 +77,7 @@ def classify(decoded_image, session, graph, debug=False):
         else:
             resized_mask_image = None
         
-       result = c, [min_x, (min_y + max_y) // 2,  max_x, (min_y + max_y) // 2, (min_x + max_x) // 2, min_y, (min_x + max_x) // 2, max_y], resized_mask_image
+        result = c, [min_x, (min_y + max_y) // 2,  max_x, (min_y + max_y) // 2, (min_x + max_x) // 2, min_y, (min_x + max_x) // 2, max_y], resized_mask_image
 
 
     return result

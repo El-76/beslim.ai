@@ -126,7 +126,7 @@ def sessions():
 
         session = '.'.join(os.path.basename(s).split('.')[:-1])
 
-        response += ('                <td>' + datetime.datetime.utcfromtimestamp(int(session.split('-')[0])).strftime('%Y-%m-%d %H:%M:%S') + '<br>' + session + '</td>\n')
+        response += ('                <td style="white-space:nowrap">' + datetime.datetime.utcfromtimestamp(int(session.split('-')[0])).strftime('%Y-%m-%d %H:%M:%S') + '<br>' + session + '</td>\n')
 
         with open(s, 'r') as f:
             response += '                <td style="white-space:pre-wrap; word-wrap:break-word">'
@@ -135,7 +135,7 @@ def sessions():
 
             response += '</td>\n'
 
-        response += '                <td>\n'
+        response += '                <td style="white-space:nowrap">\n'
 
         for image in session_images.get(session, []):
             response += ('<a href="/beslim.ai/debug/' + os.path.basename(image) + '">' + os.path.basename(image) + '</a><br>')
@@ -170,49 +170,54 @@ def weight():
     for attempt, snapshot in enumerate(message.snapshots):
         decoded_image = cv2.imdecode(numpy.fromstring(snapshot.photo, numpy.uint8), cv2.IMREAD_COLOR)
 
-        product_class, point_pairs, filtered_grid, debug_image = (
-            classify(image, snapshot.grid, session, graph, debug)
-        )
-
-        product_classes.append(product_class)
-
-        if debug:
-            for coords in snapshot.grid:
-                debug_image = cv2.circle(debug_image, (coords.vx, coords.vy), 5, (255, 0, 0), -1) 
-
-        nearest_pairs = [([None, None], [None, None])] * len(point_pairs)
-        for coords in filtered_grid:
-            for i, pair in enumerate(point_pairs):
-                for j, point in enumerate(pair):
-                    distance = (coords.vx - point[0]) ** 2 + (coords.vy - point[1]) ** 2
-                    min_distance = nearest_pairs[i][j][0]
-                    if min_distance is None or min_distance > distance:
-                        nearest_pairs[i][j][0] = min_distance
-                        nearest_pairs[i][j][1] = coords
-
-            if debug:
-                debug_image = cv2.circle(debug_image, (coords.vx, coords.vy), 5, (0, 255, 255), -1)
-
-        grid_point_pairs = []
-        for nearest_pair in nearest_pairs:
-            if nearest_pair[0][0] and nearest_pair[1][0]:
-                grid_point_pairs.append((nearest_pair[0][1], nearest_pair[1][1]))
-
-        grid_point_pair_list.append(grid_point_pairs)
-
-        if debug:
-            for grid_point_pair in grid_point_pairs:
-                for grid_point in grid_point_pair:
-                    debug_image = cv2.circle(
-                        debug_image, (grid_point.vx, grid_point.vy), 5, (255, 255, 0), -1
-                    )
-
         if debug:
             cv2.imwrite(
                 os.path.join(var_run_path, 'debug', '{}-{}.png'.format(session_id, attempt)),
                 decoded_image
             )
 
+        product_class, point_pairs, filtered_grid, debug_image = (
+            classify(decoded_image, snapshot.grid, session, graph, debug)
+        )
+
+        product_classes.append(product_class)
+
+        if debug:
+            for coords in snapshot.grid:
+                debug_image = cv2.circle(debug_image, (coords.vx, coords.vy), 2, (255, 0, 0), -1) 
+
+        nearest_pairs = []
+        for i in range(0, len(point_pairs)):
+            nearest_pairs.append(([None, None], [None, None]))
+
+        for coords in filtered_grid:
+            for i, pair in enumerate(point_pairs):
+                for j, point in enumerate(pair):
+                    distance = (coords.vx - point[0]) ** 2 + (coords.vy - point[1]) ** 2
+                    min_distance = nearest_pairs[i][j][0]
+                    if min_distance is None or min_distance > distance:
+                        nearest_pairs[i][j][0] = distance
+                        nearest_pairs[i][j][1] = coords
+
+        for coords in filtered_grid:
+            if debug:
+                debug_image = cv2.circle(debug_image, (coords.vx, coords.vy), 2, (0, 255, 255), -1)
+
+        grid_point_pairs = []
+        for nearest_pair in nearest_pairs:
+            if (nearest_pair[0][0] is not None) and (nearest_pair[1][0] is not None):
+                grid_point_pairs.append((nearest_pair[0][1], nearest_pair[1][1]))
+
+        grid_point_pair_lists.append(grid_point_pairs)
+
+        if debug:
+            for grid_point_pair in grid_point_pairs:
+                for grid_point in grid_point_pair:
+                    debug_image = cv2.circle(
+                        debug_image, (grid_point.vx, grid_point.vy), 2, (255, 255, 0), -1
+                    )
+
+        if debug:
             cv2.imwrite(
                 os.path.join(var_run_path, 'debug', '{}-{}-class.png'.format(session_id, attempt)),
                 debug_image
@@ -250,45 +255,48 @@ def weight():
                 total_height += height
 
                 n += 1.0
-             else:
+            else:
                 width = None
                 height = None
 
-        if debug:
-            widths.append(width)
-            heights.append(height)
+            if debug:
+                widths.append(width)
+                heights.append(height)
 
-        avg_width = total_width / n
-        avg_height = total_height / n
+        if n > 0:
+            avg_width = total_width / n
+            avg_height = total_height / n
 
-        weight = (3.14 * avg_width * avg_width / 8.0) * avg_height * density * 1000.0
+            weight = (3.14 * avg_width * avg_width / 8.0) * avg_height * density * 1000.0
+        else:
+            weight = None
     else:
         if debug:
             widths = [ None ] * len(grid_point_pair_lists)
             heights = [ None ] * len(grid_point_pair_lists)
 
-        weight = -1.0
+        weight = None
 
     if debug:
         debug_file = os.path.join(var_run_path, 'debug', '{}.txt'.format(session_id))
 
         with open(debug_file, 'w') as f:
-            f.write('session id: {}\n'.format(sessionId))
+            f.write('session id: {}\n'.format(session_id))
             f.write('time: {0:.3f}s\n'.format(duration / 1000.0))
             f.write('model: {}\n\n'.format(model))
 
-            for i, (product_class, width, height) in enumerate(product_classes, widths, heights):
+            for i, (product_class, width, height) in enumerate(zip(product_classes, widths, heights)):
                 f.write('product class: {}\n'.format(product_class))
-                f.write('width: ' + ('{0:d}'.format(width) if width else 'n/a') + '\n')
-                f.write('height: ' + ('{0:d}'.format(height) if height else 'n/a') + '\n\n')
+                f.write('width: ' + ('{0:.3f}'.format(width) if width else 'n/a') + '\n')
+                f.write('height: ' + ('{0:.3f}'.format(height) if height else 'n/a') + '\n\n')
 
             f.write('product class: {}\n'.format(result_product_class))
-            f.write('weight: {0:.3f}\n'.format(weight))
+            f.write('weight: ' + ('{0:.3f}\n'.format(weight) if weight else 'n/a'))
 
     message = WeightOutMessage_pb2.WeightOutMessage()
 
     message.productClass = result_product_class
-    message.weight = weight
+    message.weight = weight if weight else -1.0
 
     return flask.Response(response=message.SerializeToString(), status=200, mimetype='application/x-protobuf')
 
