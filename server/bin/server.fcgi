@@ -1,9 +1,12 @@
 #!/usr/bin/python3 -u
 
+import cv2
 import datetime
 import flask
 import glob
 import keras
+import math
+import numpy
 import os
 import socket
 import tensorflow
@@ -24,7 +27,7 @@ def stub_load():
     pass
 
 def stub_classify(data, session, graph, debug_files=None):
-    pass
+    return 'Unknown', []
 
 application = flask.Flask(__name__)
 
@@ -147,94 +150,145 @@ def sessions():
 
 @application.route('/weight', methods=['POST'])
 def weight():
-    session_id = flask.request.args.get('session_id')
-    debug = flask.request.args.get('debug', '0')
+    model = flask.request.args.get('model', default_model)
+    debug = (flask.request.args.get('debug', '0') == '1')
 
     message = WeightInMessage_pb2.WeightInMessage()
 
     message.ParseFromString(flask.request.get_data(cache=False))
 
-    product_classes = [segment_out_message.productClass for segment_out_message in message.segmentOutMessages]
+    session_id = flask.request.args.get(
+        'session_id', '{}-{}-{}'.format(int(time.time()), get_ip(), os.getpid())
+    )
 
-    product_class = product_classes[0] if len(set(product_classes)) == 1 else 'Unknown'
-    attempts = len(product_classes)
-    if product_class == 'Hamburger':
+    classify = models.get(model, {'classify': stub_classify})['classify']
+
+    start = int(time.time() * 1000.0)
+
+    product_classes = []
+    grid_point_pair_lists = []
+    for attempt, snapshot in enumerate(message.snapshots):
+        decoded_image = cv2.imdecode(numpy.fromstring(snapshot.photo, numpy.uint8), cv2.IMREAD_COLOR)
+
+        product_class, point_pairs, filtered_grid, debug_image = (
+            classify(image, snapshot.grid, session, graph, debug)
+        )
+
+        product_classes.append(product_class)
+
+        if debug:
+            for coords in snapshot.grid:
+                debug_image = cv2.circle(debug_image, (coords.vx, coords.vy), 5, (255, 0, 0), -1) 
+
+        nearest_pairs = [([None, None], [None, None])] * len(point_pairs)
+        for coords in filtered_grid:
+            for i, pair in enumerate(point_pairs):
+                for j, point in enumerate(pair):
+                    distance = (coords.vx - point[0]) ** 2 + (coords.vy - point[1]) ** 2
+                    min_distance = nearest_pairs[i][j][0]
+                    if min_distance is None or min_distance > distance:
+                        nearest_pairs[i][j][0] = min_distance
+                        nearest_pairs[i][j][1] = coords
+
+            if debug:
+                debug_image = cv2.circle(debug_image, (coords.vx, coords.vy), 5, (0, 255, 255), -1)
+
+        grid_point_pairs = []
+        for nearest_pair in nearest_pairs:
+            if nearest_pair[0][0] and nearest_pair[1][0]:
+                grid_point_pairs.append((nearest_pair[0][1], nearest_pair[1][1]))
+
+        grid_point_pair_list.append(grid_point_pairs)
+
+        if debug:
+            for grid_point_pair in grid_point_pairs:
+                for grid_point in grid_point_pair:
+                    debug_image = cv2.circle(
+                        debug_image, (grid_point.vx, grid_point.vy), 5, (255, 255, 0), -1
+                    )
+
+        if debug:
+            cv2.imwrite(
+                os.path.join(var_run_path, 'debug', '{}-{}.png'.format(session_id, attempt)),
+                decoded_image
+            )
+
+            cv2.imwrite(
+                os.path.join(var_run_path, 'debug', '{}-{}-class.png'.format(session_id, attempt)),
+                debug_image
+            )
+
+    duration = int(time.time() * 1000.0) - start
+
+    result_product_class = product_classes[0] if len(set(product_classes)) == 1 else 'Unknown'
+
+    widths = []
+    heights = []
+    if result_product_class == 'Hamburger':
         density = 100.0
 
-        width = 0.0
-        height = 0.0
-        for i in range(0, len(message.distancesBetween), 2):
-            width += message.distancesBetween[i]
-            height += message.distancesBetween[i + 1]
-        width /= attempts
-        height /= attempts
+        total_width = 0.0
+        total_height = 0.0
+        n = 0.0
+        for grid_point_pairs in grid_point_pair_lists:
+            if len(grid_point_pairs) == 2:
+                pair_w = grid_point_pairs[0]
+                p1 = pair_w[0]
+                p2 = pair_w[1]
+                width = math.sqrt(
+                    (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2 + (p1.z - p2.z) ** 2
+                )
 
-        weight = (3.14 * width * width / 8.0) * height * density * 1000.0
+                pair_h = grid_point_pairs[1]
+                p1 = pair_h[0]
+                p2 = pair_h[1]
+                height = math.sqrt(
+                    (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2 + (p1.z - p2.z) ** 2
+                )
+
+                total_width += width
+                total_height += height
+
+                n += 1.0
+             else:
+                width = None
+                height = None
+
+        if debug:
+            widths.append(width)
+            heights.append(height)
+
+        avg_width = total_width / n
+        avg_height = total_height / n
+
+        weight = (3.14 * avg_width * avg_width / 8.0) * avg_height * density * 1000.0
     else:
+        if debug:
+            widths = [ None ] * len(grid_point_pair_lists)
+            heights = [ None ] * len(grid_point_pair_lists)
+
         weight = -1.0
 
-    if session_id and debug == '1':
+    if debug:
         debug_file = os.path.join(var_run_path, 'debug', '{}.txt'.format(session_id))
 
         with open(debug_file, 'w') as f:
-            for i, segment_out_message in enumerate(message.segmentOutMessages):
-                f.write('SegmentOutMessage #{0:d}\n'.format(i))
-                f.write('sessionId: {}\n'.format(segment_out_message.sessionId))
-                f.write('productClass: {}\n'.format(segment_out_message.productClass))
-                f.write('pointsDistancesBetween: ' + ', '.join(['{0:d}'.format(x) for x in segment_out_message.pointsDistancesBetween]) + '\n')
-                f.write('time: {0:.3f}s\n'.format(segment_out_message.time / 1000.0))
-                f.write('model: {}\n\n'.format(segment_out_message.model))
+            f.write('session id: {}\n'.format(sessionId))
+            f.write('time: {0:.3f}s\n'.format(duration / 1000.0))
+            f.write('model: {}\n\n'.format(model))
 
-            f.write('WeightInMessage\n')
-            f.write('distancesBetween: ' + ', '.join(['{0:.3f}'.format(x) for x in message.distancesBetween]) + '\n\n')
+            for i, (product_class, width, height) in enumerate(product_classes, widths, heights):
+                f.write('product class: {}\n'.format(product_class))
+                f.write('width: ' + ('{0:d}'.format(width) if width else 'n/a') + '\n')
+                f.write('height: ' + ('{0:d}'.format(height) if height else 'n/a') + '\n\n')
 
-            f.write('WeightOutMessage\n')
-            f.write('productClass: {}\n'.format(product_class))
+            f.write('product class: {}\n'.format(result_product_class))
             f.write('weight: {0:.3f}\n'.format(weight))
 
     message = WeightOutMessage_pb2.WeightOutMessage()
 
-    message.productClass = product_class
+    message.productClass = result_product_class
     message.weight = weight
-
-    return flask.Response(response=message.SerializeToString(), status=200, mimetype='application/x-protobuf')
-
-@application.route('/segment', methods=['POST'])
-def segment():
-    session_id = flask.request.args.get('session_id', '{}-{}-{}'.format(int(time.time()), get_ip(), os.getpid()))
-    debug = flask.request.args.get('debug', '0')
-    attempt = flask.request.args.get('attempt', '0')
-    model = flask.request.args.get('model', default_model)
-
-    classify = models.get(model, {'classify': stub_classify})['classify']
-
-    message = SegmentInMessage_pb2.SegmentInMessage()
-
-    message.ParseFromString(flask.request.get_data(cache=False))
-
-    image = message.photo
-
-    if debug == '1':
-        debug_orig_image_file = os.path.join(var_run_path, 'debug', '{}-{}.png'.format(session_id, attempt))
-        debug_class_image_file = os.path.join(var_run_path, 'debug', '{}-{}-class.png'.format(session_id, attempt))
-
-        debug_files = (debug_orig_image_file, debug_class_image_file)
-    else:
-        debug_files = None
-
-    start = int(time.time() * 1000.0)
-
-    product_class, points_distances_between = classify(image, session, graph, debug_files=debug_files)
-
-    duration = int(time.time() * 1000.0) - start
-
-    message = SegmentOutMessage_pb2.SegmentOutMessage()
-
-    message.sessionId = session_id
-    message.productClass = product_class
-    message.pointsDistancesBetween.extend(points_distances_between)
-    message.time = duration
-    message.model = model
 
     return flask.Response(response=message.SerializeToString(), status=200, mimetype='application/x-protobuf')
 

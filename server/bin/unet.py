@@ -25,9 +25,7 @@ def load():
     model.compile(optimizer=keras.optimizers.Adam(), loss=bce_dice_loss, metrics=[dice_coef])
     model.load_weights('/opt/beslim.ai/etc/unet_v1.h5')
 
-def classify(data, session, graph, debug_files=None):
-    decoded_image = cv2.imdecode(numpy.fromstring(data, numpy.uint8), cv2.IMREAD_COLOR)
-
+def classify(decoded_image, session, graph, debug=False):
     resized_image = cv2.cvtColor(cv2.resize(decoded_image, (800, 512)), cv2.COLOR_BGR2RGB)
 
     with graph.as_default():
@@ -47,38 +45,39 @@ def classify(data, session, graph, debug_files=None):
     max_y = -1
 
     if numpy.all(p < threshold):
-       result = 'Unknown', []
+        result = 'Unknown', []
     else:
-       i = numpy.argmax(p)
-       c = {0: 'Apple', 1: 'Hamburger', 2: 'Pizza'}[i]
+        i = numpy.argmax(p)
+        c = {0: 'Apple', 1: 'Hamburger', 2: 'Pizza'}[i]
 
-       mask_image = (numpy.max(mask, axis=2) * 255.0).astype(numpy.uint8)
+        mask_image = (numpy.max(mask, axis=2) * 255.0).astype(numpy.uint8)
 
-       resized_mask_image = cv2.resize(cv2.cvtColor(mask_image, cv2.COLOR_BGR2RGB), shape)
+        resized_mask_image = cv2.resize(cv2.cvtColor(mask_image, cv2.COLOR_BGR2RGB), shape)
 
-       resized_mask_image_gray = cv2.cvtColor(resized_mask_image, cv2.COLOR_BGR2GRAY)
+        resized_mask_image_gray = cv2.cvtColor(resized_mask_image, cv2.COLOR_BGR2GRAY)
 
-       _, threshold = cv2.threshold(resized_mask_image_gray, 64, 64, 64)
+        _, threshold = cv2.threshold(resized_mask_image_gray, 64, 64, 64)
 
-       contours, hierarchy = cv2.findContours(threshold, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv2.findContours(threshold, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-       for contour in contours:
-           for x, y in [ (e[0][0], e[0][1]) for e in contour ]:
-               min_x = min(x, min_x)
-               max_x = max(x, max_x)
-               min_y = min(y, min_y)
-               max_y = max(y, max_y)
+        for contour in contours:
+            for x, y in [ (e[0][0], e[0][1]) for e in contour ]:
+                min_x = min(x, min_x)
+                max_x = max(x, max_x)
+                min_y = min(y, min_y)
+                max_y = max(y, max_y)
 
-       if debug_files:
-           cv2.imwrite(debug_files[0], decoded_image)
+        if debug:
+            resized_mask_image = cv2.drawContours(resized_mask_image, contours, -1, (255, 255, 255), 3, cv2.LINE_AA, hierarchy, 1)
 
-           resized_mask_image = cv2.drawContours(resized_mask_image, contours, -1, (255, 255, 255), 3, cv2.LINE_AA, hierarchy, 1)
+            for center in [(min_x, (min_y + max_y) // 2), (max_x, (min_y + max_y) // 2), ((min_x + max_x) // 2, min_y), ((min_x + max_x) // 2, max_y)]:
+                resized_mask_image = cv2.circle(resized_mask_image, center, 15, (0, 0, 255), -1) 
 
-           for center in [(min_x, (min_y + max_y) // 2), (max_x, (min_y + max_y) // 2), ((min_x + max_x) // 2, min_y), ((min_x + max_x) // 2, max_y)]:
-               resized_mask_image = cv2.circle(resized_mask_image, center, 15, (0, 0, 255), -1) 
+            cv2.imwrite(debug_files[1], resized_mask_image)
+        else:
+            resized_mask_image = None
+        
+       result = c, [min_x, (min_y + max_y) // 2,  max_x, (min_y + max_y) // 2, (min_x + max_x) // 2, min_y, (min_x + max_x) // 2, max_y], resized_mask_image
 
-           cv2.imwrite(debug_files[1], resized_mask_image)
-
-       result = c, [min_x, (min_y + max_y) // 2,  max_x, (min_y + max_y) // 2, (min_x + max_x) // 2, min_y, (min_x + max_x) // 2, max_y]
 
     return result
