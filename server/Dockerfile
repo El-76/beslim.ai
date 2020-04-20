@@ -85,6 +85,9 @@ RUN cat /opt/beslim.ai/etc/unet_v1.h5.* > /opt/beslim.ai/etc/unet_v1.h5 \
 
 RUN ln -s /opt/beslim.ai/etc/beslim.ai.conf /etc/nginx/conf.d/beslim.ai.conf
 
+RUN ln -sf /dev/stdout /var/log/nginx/access.log \
+    && ln -sf /dev/stderr /var/log/nginx/error.log
+
 COPY bin/* /opt/beslim.ai/bin/
 
 RUN chmod u+x /opt/beslim.ai/bin/server.fcgi

@@ -4,6 +4,7 @@ import cv2
 import datetime
 import flask
 import glob
+import imghdr
 import keras
 import math
 import numpy
@@ -107,7 +108,9 @@ def sessions():
 
     session_images = {}
 
-    for image in sorted(glob.glob(os.path.join(var_run_path, 'debug', '*.png'))):
+    for image in sorted(
+        glob.glob(os.path.join(var_run_path, 'debug', '*.png')) + glob.glob(os.path.join(var_run_path, 'debug', '*.jpeg'))
+    ):
         for s in session_files:
             session = '.'.join(os.path.basename(s).split('.')[:-1])
 
@@ -168,11 +171,13 @@ def weight():
     product_classes = []
     grid_point_pair_lists = []
     for attempt, snapshot in enumerate(message.snapshots):
+        image_type = imghdr.what(None, snapshot.photo)
+
         decoded_image = cv2.imdecode(numpy.fromstring(snapshot.photo, numpy.uint8), cv2.IMREAD_COLOR)
 
         if debug:
             cv2.imwrite(
-                os.path.join(var_run_path, 'debug', '{}-{}.png'.format(session_id, attempt)),
+                os.path.join(var_run_path, 'debug', '{}-{}.{}'.format(session_id, attempt, image_type)),
                 decoded_image
             )
 
@@ -219,11 +224,11 @@ def weight():
 
         if debug:
             cv2.imwrite(
-                os.path.join(var_run_path, 'debug', '{}-{}-class.png'.format(session_id, attempt)),
+                os.path.join(var_run_path, 'debug', '{}-{}-class.{}'.format(session_id, attempt, image_type)),
                 debug_image
             )
 
-    duration = int(time.time() * 1000.0) - start
+    classified_at = int(time.time() * 1000.0)
 
     result_product_class = product_classes[0] if len(set(product_classes)) == 1 else 'Unknown'
 
@@ -282,7 +287,7 @@ def weight():
 
         with open(debug_file, 'w') as f:
             f.write('session id: {}\n'.format(session_id))
-            f.write('time: {0:.3f}s\n'.format(duration / 1000.0))
+            f.write('time: {0:.3f}s\n'.format((classified_at - start) / 1000.0))
             f.write('model: {}\n\n'.format(model))
 
             for i, (product_class, width, height) in enumerate(zip(product_classes, widths, heights)):
