@@ -155,7 +155,11 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         
         let uiimage = UIImage(cgImage: ccImage);
 
-        guard let photo = uiimage.pngData() else {
+        //guard let photo = uiimage.pngData() else {
+        //    return false
+        //}
+
+        guard let photo = uiimage.jpegData(compressionQuality: 0.5) else {
             return false
         }
         
