@@ -15,9 +15,11 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
     
     enum State {
         case stopped
+        case waitingForRestart
         case mappingWorld
         case takingSnapshot
         case weighting
+        case recognized
     }
     
     @IBOutlet var sceneView: ARSCNView!
@@ -26,20 +28,21 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
     @IBOutlet weak var progressView: UIProgressView!
     @IBOutlet weak var statusLabel: UILabel!
     
-    fileprivate var snapshots: [Beslim_Ai_Snapshot] = Array<Beslim_Ai_Snapshot>()
+    fileprivate var snapshots: Beslim_Ai_WeightInMessage = Beslim_Ai_WeightInMessage()
     
     @IBAction func recognize(_ sender: Any) {
-        if state == State.stopped {
+        if state == State.recognized {
+            self.restart()
+        } else if state == State.stopped {
             recognizeButton.setTitle("Stop", for: UIControl.State.normal)
             
-            progressView.setProgress(0.0, animated: false)
             progressUIView.isHidden = false
-            
-            state = State.mappingWorld
             
             sceneView.session.pause()
             
             resumeSession()
+            
+            state = State.waitingForRestart
         } else {
             restart()
         }
@@ -49,29 +52,31 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         self.state = State.stopped
         
         self.progressUIView.isHidden = true
+        self.progressView.setProgress(0.0, animated: false)
         
         self.recognizeButton.setTitle("Recognize", for: UIControl.State.normal)
         
         self.finishedAttempts = 0
         
-        self.lastSnapshotTime = 0
+        self.lastCameraPosition = nil;
         
-        self.snapshots.removeAll()
+        self.snapshots.snapshots.removeAll()
         
         self.statusLabel.text = String(format: "Mapping world...", self.attempts)
     }
 
     fileprivate var state: State! = State.stopped
-    fileprivate let attempts: Int = 10
+    fileprivate let attempts: Int = 40
     fileprivate let gridStep: Int = 10
-    fileprivate let interval: Int = 500
+    fileprivate let minMovement: Float = 0.02;
+    fileprivate var lastCameraPosition: simd_float4x4?
     fileprivate var finishedAttempts: Int = 0
     fileprivate let host = "193.106.92.67"
     //fileprivate let host = "95.216.150.30"
     
     fileprivate var text: SCNText!
     
-    fileprivate var lastSnapshotTime: Int!
+    
     
     //fileprivate let debugOptions: ARSCNDebugOptions = [ARSCNDebugOptions.showFeaturePoints]
     fileprivate let debugOptions: ARSCNDebugOptions = []
@@ -130,7 +135,7 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         // Restart the view's session
         self.sceneView.session.run(configuration, options: [ARSession.RunOptions.resetTracking, ARSession.RunOptions.removeExistingAnchors])
         
-        self.sceneView.debugOptions = self.debugOptions
+        //self.sceneView.debugOptions = self.debugOptions
     }
   
     func takeSnapshot(frame: ARFrame) -> Bool {
@@ -159,7 +164,7 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         //    return false
         //}
 
-        guard let photo = uiimage.jpegData(compressionQuality: 0.5) else {
+        guard let photo = uiimage.jpegData(compressionQuality: 0.1) else {
             return false
         }
         
@@ -191,23 +196,17 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         snapshot.photo = photo
         snapshot.grid = grid
         
-        self.snapshots.append(snapshot);
+        self.snapshots.snapshots.append(snapshot);
         
         return true;
     }
     
     func requestWeight() {
-        self.state = State.weighting
-                
-        var inMessage = Beslim_Ai_WeightInMessage()
-                
-        inMessage.snapshots = self.snapshots
-                
         let url = URL(string: String(format: "http://%@:7878/beslim.ai/weight?debug=1", self.host))
         var request = URLRequest(url: url!)
         request.httpMethod = "POST"
         request.setValue("application/x-protobuf", forHTTPHeaderField: "Content-Type")
-        guard ((try? request.httpBody = inMessage.serializedData()) != nil) else {
+        guard ((try? request.httpBody = snapshots.serializedData()) != nil) else {
             return
         }
                 
@@ -231,25 +230,15 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
             let weight = outMessage!.weight
                     
             DispatchQueue.main.async {
-                self.statusLabel.text = "Recognized"
-                
-                self.progressView.setProgress(
-                    Float(self.attempts + 2) / Float(self.attempts + 2), animated: true)
-                
-                self.restart()
-                        
-                var text = String(format: "Product: %@", productClass)
-                        
-                if productClass != "Unknown" {
-                    text += String(format: "\nEstimated weight: %.0fg", weight)
+                if productClass == "Unknown" {
+                    self.statusLabel.text = "Unknown"
+                } else {
+                    self.statusLabel.text = String(format: "%@ (%.0fg)", productClass, weight)
                 }
-                        
-                let alert = UIAlertController(
-                    title: "Recognition result", message: text, preferredStyle: .alert)
-
-                alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
-
-                self.present(alert, animated: true)
+                
+                self.recognizeButton.setTitle("OK", for: UIControl.State.normal)
+                
+                self.state = State.recognized
             }
         }
                 
@@ -258,13 +247,25 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
      
     // MARK: - ARSessionDelegate
     func session(_ session: ARSession, didUpdate frame: ARFrame) {
+        if (state == State.waitingForRestart && frame.worldMappingStatus != .mapped) {
+            state = State.mappingWorld;
+        }
+        
         if (state == State.mappingWorld) {
-            let snapshotTime = Int(Date().timeIntervalSince1970 * 1000)
-            if (frame.worldMappingStatus == .mapped && snapshotTime - lastSnapshotTime >= interval) {
+            var distance = minMovement * minMovement
+            let cameraPosition = frame.camera.transform
+            if (lastCameraPosition != nil) {
+                distance = 0.0
+                for i in 0..<3 {
+                    distance += (lastCameraPosition![3, i] - cameraPosition[3, i])
+                        * (lastCameraPosition![3, i] - cameraPosition[3, i])
+                }
+            }
+            
+            if (frame.worldMappingStatus == .mapped && distance >= minMovement * minMovement) {
                 state = State.takingSnapshot
                 
-                self.statusLabel.text = String(
-                    format: "Taking snapshot %d of %d...", self.finishedAttempts + 1, self.attempts)
+                self.statusLabel.text = "Taking snapshots..."
                 
                 let result = self.takeSnapshot(frame: frame)
             
@@ -274,22 +275,21 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
                     return;
                 }
                                         
-                self.lastSnapshotTime = snapshotTime
+                self.lastCameraPosition = cameraPosition
                     
                 self.finishedAttempts += 1
                     
                 self.progressView.setProgress(
-                    Float(self.finishedAttempts) / Float(self.attempts + 2), animated: true)
+                    Float(self.finishedAttempts) / Float(self.attempts), animated: true)
                     
                 if (self.finishedAttempts == self.attempts) {
-                    self.state = State.weighting;
+                    self.state = State.weighting
                     
                     self.statusLabel.text = "Weighting..."
                     
-                    self.progressView.setProgress(
-                        Float(self.attempts + 1) / Float(self.attempts + 2), animated: true)
-                    
-                    self.requestWeight();
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        self.requestWeight()
+                    }
                 }
             }
         }
