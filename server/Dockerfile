@@ -90,6 +90,11 @@ RUN ln -sf /dev/stdout /var/log/nginx/access.log \
 
 COPY bin/* /opt/beslim.ai/bin/
 
+COPY phoria.js-v0.9.16.zip .
+RUN unzip phoria.js-v0.9.16.zip \
+    && mkdir -p /opt/phoria.js/ \
+    cp -r phoria.js-v0.9.16/scripts/* /opt/phoria.js
+
 RUN chmod u+x /opt/beslim.ai/bin/server.fcgi
 
 EXPOSE 7878
