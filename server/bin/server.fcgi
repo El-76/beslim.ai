@@ -177,7 +177,7 @@ def weight():
 
         if debug:
             cv2.imwrite(
-                os.path.join(var_run_path, 'debug', '{}-{}.{}'.format(session_id, attempt, image_type)),
+                os.path.join(var_run_path, 'debug', '{}-{:02d}.{}'.format(session_id, attempt, image_type)),
                 decoded_image
             )
 
@@ -224,7 +224,7 @@ def weight():
 
         if debug:
             cv2.imwrite(
-                os.path.join(var_run_path, 'debug', '{}-{}-class.{}'.format(session_id, attempt, image_type)),
+                os.path.join(var_run_path, 'debug','{}-{:02d}-class.{}'.format(session_id, attempt, image_type)),
                 debug_image
             )
 
@@ -234,13 +234,12 @@ def weight():
 
     widths = []
     heights = []
-    if result_product_class == 'Hamburger':
-        density = 100.0
-
-        total_width = 0.0
-        total_height = 0.0
-        n = 0.0
-        for grid_point_pairs in grid_point_pair_lists:
+    density = 100.0
+    total_width = 0.0
+    total_height = 0.0
+    n = 0.0
+    for product_class, grid_point_pairs in zip(product_classes, grid_point_pair_lists):
+        if product_class == 'Hamburger':
             if len(grid_point_pairs) == 2:
                 pair_w = grid_point_pairs[0]
                 p1 = pair_w[0]
@@ -275,11 +274,8 @@ def weight():
             weight = (3.14 * avg_width * avg_width / 8.0) * avg_height * density * 1000.0
         else:
             weight = None
-    else:
-        if debug:
-            widths = [ None ] * len(grid_point_pair_lists)
-            heights = [ None ] * len(grid_point_pair_lists)
 
+    if result_product_class != 'Hamburger':
         weight = None
 
     if debug:
@@ -290,7 +286,8 @@ def weight():
             f.write('time: {0:.3f}s\n'.format((classified_at - start) / 1000.0))
             f.write('model: {}\n\n'.format(model))
 
-            for i, (product_class, width, height) in enumerate(zip(product_classes, widths, heights)):
+            for attempt, (product_class, width, height) in enumerate(zip(product_classes, widths, heights)):
+                f.write('attempt #{:02d}\n'.format(attempt))
                 f.write('product class: {}\n'.format(product_class))
                 f.write('width: ' + ('{0:.3f}'.format(width) if width else 'n/a') + '\n')
                 f.write('height: ' + ('{0:.3f}'.format(height) if height else 'n/a') + '\n\n')
