@@ -138,7 +138,7 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         //self.sceneView.debugOptions = self.debugOptions
     }
   
-    func takeSnapshot(frame: ARFrame) -> Bool {
+    func takeSnapshot(frame: ARFrame, cameraX: Float, cameraY: Float, cameraZ: Float) -> Bool {
         let orientation = UIApplication.shared.statusBarOrientation
 
         let vSize = sceneView.bounds.size
@@ -160,41 +160,59 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         
         let uiimage = UIImage(cgImage: ccImage);
 
-        //guard let photo = uiimage.pngData() else {
-        //    return false
-        //}
-
         guard let photo = uiimage.jpegData(compressionQuality: 0.1) else {
             return false
         }
         
-        var grid = Array<Beslim_Ai_Coords>()
-        
-        let startX = Int(vSize.width / 2) % gridStep
-        let startY = Int(vSize.height / 2) % gridStep
-        for x in stride(from: startX, to: Int(vSize.width), by: gridStep) {
-            for y in stride(from: startY, to: Int(vSize.height), by: gridStep) {
-                let htest = self.sceneView.hitTest(CGPoint(x: x, y: y), types: [.featurePoint]).first
-    
-                if (htest != nil) {
-                    var coords = Beslim_Ai_Coords()
-                    
-                    coords.vx = Int32(x);
-                    coords.vy = Int32(y);
-                    
-                    coords.x = htest!.worldTransform.columns.3.x
-                    coords.y = htest!.worldTransform.columns.3.y
-                    coords.z = htest!.worldTransform.columns.3.z
-                    
-                    grid.append(coords)
-                }
-            }
-        }
-        
         var snapshot = Beslim_Ai_Snapshot()
         
+        snapshot.cameraX = cameraX
+        snapshot.cameraY = cameraY
+        snapshot.cameraZ = cameraZ
+        
+        let centerX = Int(vSize.width / 2)
+        let centerY = Int(vSize.height / 2)
+        
+        var htest = self.sceneView.hitTest(
+            CGPoint(x: centerX, y: centerY), types: [.featurePoint]
+        ).first
+        
+        if (htest == nil) {
+            return false
+        }
+        
+        snapshot.lookAtX = htest!.worldTransform.columns.3.x
+        snapshot.lookAtY = htest!.worldTransform.columns.3.y
+        snapshot.lookAtZ = htest!.worldTransform.columns.3.z
+        
+        let startX = centerX % gridStep
+        let startY = centerY % gridStep
+        for y in stride(from: startY, to: Int(vSize.height), by: gridStep) {
+            var row = Beslim_Ai_Row()
+            
+            for x in stride(from: startX, to: Int(vSize.width), by: gridStep) {
+                htest = self.sceneView.hitTest(CGPoint(x: x, y: y), types: [.featurePoint]).first
+    
+                if (htest == nil) {
+                    return false
+                }
+                
+                var coords = Beslim_Ai_Coords()
+                
+                coords.vx = Int32(x);
+                coords.vy = Int32(y);
+                
+                coords.x = htest!.worldTransform.columns.3.x
+                coords.y = htest!.worldTransform.columns.3.y
+                coords.z = htest!.worldTransform.columns.3.z
+                
+                row.row.append(coords)
+            }
+            
+            snapshot.grid.append(row)
+        }
+        
         snapshot.photo = photo
-        snapshot.grid = grid
         
         self.snapshots.snapshots.append(snapshot);
         
@@ -267,7 +285,12 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
                 
                 self.statusLabel.text = "Taking snapshots..."
                 
-                let result = self.takeSnapshot(frame: frame)
+                let result = self.takeSnapshot(
+                    frame: frame,
+                    cameraX: cameraPosition[3, 0],
+                    cameraY: cameraPosition[3, 1],
+                    cameraZ: cameraPosition[3, 2]
+                )
             
                 self.state = State.mappingWorld
                 

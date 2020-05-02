@@ -12,7 +12,17 @@ message Coords {
 
 message Snapshot {
     bytes photo = 1;
-    repeated Coords grid = 2;
+    repeated Row grid = 2;
+    float cameraX = 3;
+    float cameraY = 4;
+    float cameraZ = 5;
+    float lookAtX = 6;
+    float lookAtY = 7;
+    float lookAtZ = 8;
+}
+
+message Row {
+    repeated Coords row = 1;
 }
 
 message WeightInMessage {

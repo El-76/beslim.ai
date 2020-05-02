@@ -7,8 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		3A6DD4D82420D95E006D7049 /* WeightInMessage.proto in Sources */ = {isa = PBXBuildFile; fileRef = 3A6DD4D72420D95E006D7049 /* WeightInMessage.proto */; };
-		3A6DD4E02420D990006D7049 /* WeightOutMessage.proto in Sources */ = {isa = PBXBuildFile; fileRef = 3A6DD4DF2420D990006D7049 /* WeightOutMessage.proto */; };
 		3A73EE36244B5FC5006A7657 /* WeightOutMessage.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A73EE34244B5FC5006A7657 /* WeightOutMessage.pb.swift */; };
 		3A73EE37244B5FC5006A7657 /* WeightInMessage.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A73EE35244B5FC5006A7657 /* WeightInMessage.pb.swift */; };
 		3A77DBC42407E89F00FD7BC1 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A77DBC32407E89F00FD7BC1 /* AppDelegate.swift */; };
@@ -111,8 +109,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		3A6DD4D72420D95E006D7049 /* WeightInMessage.proto */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.protobuf; path = WeightInMessage.proto; sourceTree = "<group>"; };
-		3A6DD4DF2420D990006D7049 /* WeightOutMessage.proto */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.protobuf; path = WeightOutMessage.proto; sourceTree = "<group>"; };
 		3A73EE34244B5FC5006A7657 /* WeightOutMessage.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WeightOutMessage.pb.swift; sourceTree = "<group>"; };
 		3A73EE35244B5FC5006A7657 /* WeightInMessage.pb.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WeightInMessage.pb.swift; sourceTree = "<group>"; };
 		3A77DBC02407E89F00FD7BC1 /* BeSlimAI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BeSlimAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -192,8 +188,6 @@
 				3A77DBCC2407E8A100FD7BC1 /* Assets.xcassets */,
 				3A77DBCE2407E8A100FD7BC1 /* LaunchScreen.storyboard */,
 				3A77DBD12407E8A100FD7BC1 /* Info.plist */,
-				3A6DD4D72420D95E006D7049 /* WeightInMessage.proto */,
-				3A6DD4DF2420D990006D7049 /* WeightOutMessage.proto */,
 			);
 			path = BeSlimAI;
 			sourceTree = "<group>";
@@ -454,9 +448,7 @@
 			files = (
 				3A77DBC82407E89F00FD7BC1 /* ViewController.swift in Sources */,
 				3A73EE37244B5FC5006A7657 /* WeightInMessage.pb.swift in Sources */,
-				3A6DD4D82420D95E006D7049 /* WeightInMessage.proto in Sources */,
 				3A77DBC42407E89F00FD7BC1 /* AppDelegate.swift in Sources */,
-				3A6DD4E02420D990006D7049 /* WeightOutMessage.proto in Sources */,
 				3A73EE36244B5FC5006A7657 /* WeightOutMessage.pb.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
