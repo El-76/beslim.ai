@@ -219,7 +219,7 @@ def weight():
 
                 mask_mesh_points.append(
                     '{{x: {:.3f}, y: {:.3f}, z: {:.3f}}}'.format(
-                        -coords.x * scale, coords.y * scale, coords.z * scale
+                        coords.x * scale, coords.y * scale, -coords.z * scale
                     )
                 )
 
@@ -231,14 +231,9 @@ def weight():
                     if (y, x) in mask_points:
                         if (y, x + 1) in mask_points:
                             mask_mesh_edges.append('{{ a: {}, b: {} }}'.format(mask_points[(y, x)], mask_points[(y, x + 1)]));
-                        elif (y + 1, x + 1) in mask_points:
-                            mask_mesh_edges.append('{{ a: {}, b: {} }}'.format(mask_points[(y, x)], mask_points[(y + 1, x + 1)]))
 
                         if (y + 1, x) in mask_points:
                             mask_mesh_edges.append('{{ a: {}, b: {} }}'.format(mask_points[(y, x)], mask_points[(y + 1, x)]))
-
-                        if ((y, x - 1) not in mask_points) and ((y + 1, x - 1) in mask_points):
-                            mask_mesh_edges.append('{{ a: {}, b: {} }}'.format(mask_points[(y, x)], mask_points[(y + 1, x - 1)]))
 
             mask_mesh_edges_string = '[ ' + ', '.join(mask_mesh_edges) + ' ]' 
 
@@ -247,14 +242,14 @@ def weight():
                 for line in threeD_view_template:
                     line = line.replace('##maskPoints##', mask_mesh_points_string)
                     line = line.replace('##maskEdges##', mask_mesh_edges_string)
-                    line = line.replace('##cameraX##', '{:.3f}'.format(-snapshot.cameraX * scale))
+                    line = line.replace('##cameraX##', '{:.3f}'.format(snapshot.cameraX * scale))
                     line = line.replace('##cameraY##', '{:.3f}'.format(snapshot.cameraY * scale))
-                    line = line.replace('##cameraZ##', '{:.3f}'.format(snapshot.cameraZ * scale))
-                    line = line.replace('##lookAtX##', '{:.3f}'.format(-snapshot.lookAtX * scale))
+                    line = line.replace('##cameraZ##', '{:.3f}'.format(-snapshot.cameraZ * scale))
+                    line = line.replace('##lookAtX##', '{:.3f}'.format(snapshot.lookAtX * scale))
                     line = line.replace('##lookAtY##', '{:.3f}'.format(snapshot.lookAtY * scale))
-                    line = line.replace('##lookAtZ##', '{:.3f}'.format(snapshot.lookAtZ * scale))
+                    line = line.replace('##lookAtZ##', '{:.3f}'.format(-snapshot.lookAtZ * scale))
                     line = line.replace('##cameraUpX##', '{:.3f}'.format(-snapshot.cameraUpX * scale))
-                    line = line.replace('##cameraUpY##', '{:.3f}'.format(snapshot.cameraUpY * scale))
+                    line = line.replace('##cameraUpY##', '{:.3f}'.format(-snapshot.cameraUpY * scale))
                     line = line.replace('##cameraUpZ##', '{:.3f}'.format(snapshot.cameraUpZ * scale))
                     line = line.replace('##viewportWidth##', '{:d}'.format(decoded_image.shape[1]))
                     line = line.replace('##viewportHeight##', '{:d}'.format(decoded_image.shape[0]))
