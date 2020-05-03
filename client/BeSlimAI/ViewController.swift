@@ -138,7 +138,15 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         //self.sceneView.debugOptions = self.debugOptions
     }
   
-    func takeSnapshot(frame: ARFrame, cameraX: Float, cameraY: Float, cameraZ: Float) -> Bool {
+    func takeSnapshot(
+        frame: ARFrame,
+        cameraX: Float,
+        cameraY: Float,
+        cameraZ: Float,
+        cameraUpX: Float,
+        cameraUpY: Float,
+        cameraUpZ: Float
+    ) -> Bool {
         let orientation = UIApplication.shared.statusBarOrientation
 
         let vSize = sceneView.bounds.size
@@ -169,6 +177,10 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         snapshot.cameraX = cameraX
         snapshot.cameraY = cameraY
         snapshot.cameraZ = cameraZ
+        
+        snapshot.cameraUpX = cameraUpX
+        snapshot.cameraUpY = cameraUpY
+        snapshot.cameraUpZ = cameraUpZ
         
         let centerX = Int(vSize.width / 2)
         let centerY = Int(vSize.height / 2)
@@ -289,7 +301,10 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
                     frame: frame,
                     cameraX: cameraPosition[3, 0],
                     cameraY: cameraPosition[3, 1],
-                    cameraZ: cameraPosition[3, 2]
+                    cameraZ: cameraPosition[3, 2],
+                    cameraUpX: cameraPosition[0, 0],
+                    cameraUpY: cameraPosition[0, 1],
+                    cameraUpZ: cameraPosition[0, 2]
                 )
             
                 self.state = State.mappingWorld
