@@ -19,6 +19,9 @@ message Snapshot {
     float lookAtX = 6;
     float lookAtY = 7;
     float lookAtZ = 8;
+    float cameraUpX = 9;
+    float cameraUpY = 10;
+    float cameraUpZ = 11;
 }
 
 message Row {

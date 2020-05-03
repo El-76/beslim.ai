@@ -101,25 +101,26 @@ def get_ip():
 @application.route('/sessions', methods=['GET'])
 def sessions():
     response = '<html>\n    <body>\n'
-    response += '        <style> table.sessions-table, .sessions-table td { border: 1px solid black; padding: 5px; border-collapse: collapse; } </style>'
+    response += '        <style> table.sessions-table, .sessions-table td { border: 1px solid black; padding: 5px; border-collapse: collapse; width: 100%; } </style>'
     response += '        <table class="sessions-table">\n'
 
     session_files = sorted(glob.glob(os.path.join(var_run_path, 'debug', '*.txt')))
 
-    session_images = {}
+    session_refs = {}
 
-    for image in sorted(
-        glob.glob(os.path.join(var_run_path, 'debug', '*.png')) + glob.glob(os.path.join(var_run_path, 'debug', '*.jpeg'))
-    ):
+    all_files = glob.glob(os.path.join(var_run_path, 'debug', '*.png'))
+    all_files += glob.glob(os.path.join(var_run_path, 'debug', '*.jpeg'))
+    all_files += glob.glob(os.path.join(var_run_path, 'debug', '*.html'))
+    for ref in sorted(all_files):
         for s in session_files:
             session = '.'.join(os.path.basename(s).split('.')[:-1])
 
-            if os.path.basename(image).startswith(session):
-                images = session_images.get(session, [])
+            if os.path.basename(ref).startswith(session):
+                refs = session_refs.get(session, [])
 
-                images += [ image ]
+                refs += [ ref ]
 
-                session_images[session] = images
+                session_refs[session] = refs
 
                 break
 
@@ -129,19 +130,19 @@ def sessions():
 
         session = '.'.join(os.path.basename(s).split('.')[:-1])
 
-        response += ('                <td style="white-space:nowrap">' + datetime.datetime.utcfromtimestamp(int(session.split('-')[0])).strftime('%Y-%m-%d %H:%M:%S') + '<br>' + session + '</td>\n')
+        response += ('                <td style="white-space:nowrap; width: 1%;">' + datetime.datetime.utcfromtimestamp(int(session.split('-')[0])).strftime('%Y-%m-%d %H:%M:%S') + '<br>' + session + '</td>\n')
 
         with open(s, 'r') as f:
-            response += '                <td style="white-space:pre-wrap; word-wrap:break-word">'
+            response += '                <td style="white-space:pre-wrap; word-wrap:break-word; width: 98%;">'
 
             response += f.read().rstrip()
 
             response += '</td>\n'
 
-        response += '                <td style="white-space:nowrap">\n'
+        response += '                <td style="white-space:nowrap; width: 1%;">\n'
 
-        for image in session_images.get(session, []):
-            response += ('<a href="/beslim.ai/debug/' + os.path.basename(image) + '">' + os.path.basename(image) + '</a><br>')
+        for ref in session_refs.get(session, []):
+            response += ('<a href="/beslim.ai/debug/' + os.path.basename(ref) + '">' + os.path.basename(ref) + '</a><br>')
 
         response += '                </td>\n'
 
@@ -181,32 +182,84 @@ def weight():
                 decoded_image
             )
 
-        product_class, point_pairs, filtered_grid, debug_image = (
+        product_class, point_pairs, mask_points, debug_image = (
             classify(decoded_image, snapshot.grid, session, graph, debug)
         )
 
         product_classes.append(product_class)
 
         if debug:
-            for coords in snapshot.grid:
-                debug_image = cv2.circle(debug_image, (coords.vx, coords.vy), 2, (255, 0, 0), -1) 
+            for row in snapshot.grid:
+                for coords in row.row:
+                    debug_image = cv2.circle(debug_image, (coords.vx, coords.vy), 2, (255, 0, 0), -1) 
 
         nearest_pairs = []
         for i in range(0, len(point_pairs)):
             nearest_pairs.append(([None, None], [None, None]))
 
-        for coords in filtered_grid:
+        for (y, x) in mask_points:
             for i, pair in enumerate(point_pairs):
                 for j, point in enumerate(pair):
+                    coords = snapshot.grid[y].row[x]
+
                     distance = (coords.vx - point[0]) ** 2 + (coords.vy - point[1]) ** 2
                     min_distance = nearest_pairs[i][j][0]
                     if min_distance is None or min_distance > distance:
                         nearest_pairs[i][j][0] = distance
                         nearest_pairs[i][j][1] = coords
 
-        for coords in filtered_grid:
-            if debug:
+        if debug:
+            scale = 10.0
+
+            mask_mesh_points = []
+            for (y, x) in mask_points:
+                coords = snapshot.grid[y].row[x]
+
                 debug_image = cv2.circle(debug_image, (coords.vx, coords.vy), 2, (0, 255, 255), -1)
+
+                mask_mesh_points.append(
+                    '{{x: {:.3f}, y: {:.3f}, z: {:.3f}}}'.format(
+                        -coords.x * scale, coords.y * scale, coords.z * scale
+                    )
+                )
+
+            mask_mesh_points_string = '[ ' + ', '.join(mask_mesh_points) + ' ]'
+
+            mask_mesh_edges = []
+            for y, row in enumerate(snapshot.grid):
+                for x, coords in enumerate(row.row):
+                    if (y, x) in mask_points:
+                        if (y, x + 1) in mask_points:
+                            mask_mesh_edges.append('{{ a: {}, b: {} }}'.format(mask_points[(y, x)], mask_points[(y, x + 1)]));
+                        elif (y + 1, x + 1) in mask_points:
+                            mask_mesh_edges.append('{{ a: {}, b: {} }}'.format(mask_points[(y, x)], mask_points[(y + 1, x + 1)]))
+
+                        if (y + 1, x) in mask_points:
+                            mask_mesh_edges.append('{{ a: {}, b: {} }}'.format(mask_points[(y, x)], mask_points[(y + 1, x)]))
+
+                        if ((y, x - 1) not in mask_points) and ((y + 1, x - 1) in mask_points):
+                            mask_mesh_edges.append('{{ a: {}, b: {} }}'.format(mask_points[(y, x)], mask_points[(y + 1, x - 1)]))
+
+            mask_mesh_edges_string = '[ ' + ', '.join(mask_mesh_edges) + ' ]' 
+
+            threeD_view = os.path.join(var_run_path, 'debug', '{}-{:02d}.html'.format(session_id, attempt))
+            with open(threeD_view, 'wt') as f:
+                for line in threeD_view_template:
+                    line = line.replace('##maskPoints##', mask_mesh_points_string)
+                    line = line.replace('##maskEdges##', mask_mesh_edges_string)
+                    line = line.replace('##cameraX##', '{:.3f}'.format(-snapshot.cameraX * scale))
+                    line = line.replace('##cameraY##', '{:.3f}'.format(snapshot.cameraY * scale))
+                    line = line.replace('##cameraZ##', '{:.3f}'.format(snapshot.cameraZ * scale))
+                    line = line.replace('##lookAtX##', '{:.3f}'.format(-snapshot.lookAtX * scale))
+                    line = line.replace('##lookAtY##', '{:.3f}'.format(snapshot.lookAtY * scale))
+                    line = line.replace('##lookAtZ##', '{:.3f}'.format(snapshot.lookAtZ * scale))
+                    line = line.replace('##cameraUpX##', '{:.3f}'.format(-snapshot.cameraUpX * scale))
+                    line = line.replace('##cameraUpY##', '{:.3f}'.format(snapshot.cameraUpY * scale))
+                    line = line.replace('##cameraUpZ##', '{:.3f}'.format(snapshot.cameraUpZ * scale))
+                    line = line.replace('##viewportWidth##', '{:d}'.format(decoded_image.shape[1]))
+                    line = line.replace('##viewportHeight##', '{:d}'.format(decoded_image.shape[0]))
+
+                    f.write(line)
 
         grid_point_pairs = []
         for nearest_pair in nearest_pairs:
@@ -307,5 +360,8 @@ def ping():
     return 'Pong!'
 
 if __name__ == '__main__':
-    WSGIServer(application, bindAddress=('0.0.0.0', 7878)).run()
+    threeD_view_template = '/opt/beslim.ai/etc/3d-view.html.t'
+    with open(threeD_view_template, 'rt') as f:
+        threeD_view_template = f.readlines();
 
+    WSGIServer(application, bindAddress=('0.0.0.0', 7878)).run()
