@@ -22,6 +22,7 @@ message Snapshot {
     float cameraUpX = 9;
     float cameraUpY = 10;
     float cameraUpZ = 11;
+    float cameraFov = 12;
 }
 
 message Row {

@@ -145,7 +145,8 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         cameraZ: Float,
         cameraUpX: Float,
         cameraUpY: Float,
-        cameraUpZ: Float
+        cameraUpZ: Float,
+        cameraFov: Float
     ) -> Bool {
         let orientation = UIApplication.shared.statusBarOrientation
 
@@ -181,6 +182,8 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         snapshot.cameraUpX = cameraUpX
         snapshot.cameraUpY = cameraUpY
         snapshot.cameraUpZ = cameraUpZ
+        
+        snapshot.cameraFov = cameraFov
         
         let centerX = Int(vSize.width / 2)
         let centerY = Int(vSize.height / 2)
@@ -297,6 +300,14 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
                 
                 self.statusLabel.text = "Taking snapshots..."
                 
+                let imageResolution = frame.camera.imageResolution
+                let intrinsics = frame.camera.intrinsics
+                let xFovDegrees
+                    = 2.0 * atan(Float(imageResolution.width) / (2.0 * intrinsics[0, 0])) * 180.0 / Float.pi
+                let yFovDegrees
+                    = 2.0 * atan(Float(imageResolution.height) / (2.0 * intrinsics[1, 1])) * 180.0 / Float.pi
+                let fovDegrees = (xFovDegrees + yFovDegrees) / 2.0
+                
                 let result = self.takeSnapshot(
                     frame: frame,
                     cameraX: cameraPosition[3, 0],
@@ -304,7 +315,8 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
                     cameraZ: cameraPosition[3, 2],
                     cameraUpX: cameraPosition[0, 0],
                     cameraUpY: cameraPosition[0, 1],
-                    cameraUpZ: cameraPosition[0, 2]
+                    cameraUpZ: cameraPosition[0, 2],
+                    cameraFov: fovDegrees
                 )
             
                 self.state = State.mappingWorld
