@@ -308,14 +308,35 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
                     = 2.0 * atan(Float(imageResolution.height) / (2.0 * intrinsics[1, 1])) * 180.0 / Float.pi
                 let fovDegrees = (xFovDegrees + yFovDegrees) / 2.0
                 
+                var cameraUpX = Float(0.0)
+                var cameraUpY = Float(0.0)
+                var cameraUpZ = Float(0.0)
+                if UIApplication.shared.statusBarOrientation == UIInterfaceOrientation.landscapeLeft {
+                    cameraUpX = -cameraPosition[1, 0]
+                    cameraUpY = -cameraPosition[1, 1]
+                    cameraUpZ = -cameraPosition[1, 2]
+                } else if UIApplication.shared.statusBarOrientation == UIInterfaceOrientation.landscapeRight {
+                    cameraUpX = cameraPosition[1, 0]
+                    cameraUpY = cameraPosition[1, 1]
+                    cameraUpZ = cameraPosition[1, 2]
+                } else if UIApplication.shared.statusBarOrientation == UIInterfaceOrientation.portrait {
+                    cameraUpX = -cameraPosition[0, 0]
+                    cameraUpY = -cameraPosition[0, 1]
+                    cameraUpZ = -cameraPosition[0, 2]
+                } else if UIApplication.shared.statusBarOrientation == UIInterfaceOrientation.portraitUpsideDown {
+                    cameraUpX = cameraPosition[0, 0]
+                    cameraUpY = cameraPosition[0, 1]
+                    cameraUpZ = cameraPosition[0, 2]
+                }
+                
                 let result = self.takeSnapshot(
                     frame: frame,
                     cameraX: cameraPosition[3, 0],
                     cameraY: cameraPosition[3, 1],
                     cameraZ: cameraPosition[3, 2],
-                    cameraUpX: cameraPosition[0, 0],
-                    cameraUpY: cameraPosition[0, 1],
-                    cameraUpZ: cameraPosition[0, 2],
+                    cameraUpX: cameraUpX,
+                    cameraUpY: cameraUpY,
+                    cameraUpZ: cameraUpZ,
                     cameraFov: fovDegrees
                 )
             
