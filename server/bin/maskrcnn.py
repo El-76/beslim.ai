@@ -45,15 +45,13 @@ def classify(decoded_image, grid, session, graph, debug=False):
         
         if c == 'Unknown':
             point_pairs = []
-            mask_points = {}
+            mask_points = set()
         else:
-            n = 0
-            mask_points = {}
+            mask_points = set()
             for j, row in enumerate(grid):
                 for i, coords in enumerate(row.row):
                     if masks[coords.vy][coords.vx][0]:
-                        mask_points[(j, i,)] = n
-                        n += 1
+                        mask_points.add((j, i,))
 
             bbox = rois[0]
             center_x = (bbox[1] + bbox[3]) // 2
@@ -79,13 +77,13 @@ def classify(decoded_image, grid, session, graph, debug=False):
     else:
         c = 'Unknown'
         point_pairs = []
-        mask_points = {}
+        mask_points = set()
 
     if debug:
         masked_image = decoded_image
 
         for i, roi in enumerate(rois):
-            cv2.rectangle(masked_image, (roi[1], roi[0]), (roi[3], roi[2]), (0, 255, 0), 2)
+            cv2.rectangle(masked_image, (roi[1], roi[0]), (roi[3], roi[2]), (0, 255, 255), 2)
 
             apply_mask(masked_image, masks[:, :, i], (0, 255, 0))
 

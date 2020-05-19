@@ -1,205 +1,336 @@
 <!DOCTYPE html>
 <html>
-   <head>
-      <meta charset="utf-8">
-      <title>Phoria - Dev test page 0</title>
-      <script src="/beslim.ai/phoria.js/gl-matrix.js"></script>
-      <script src="/beslim.ai/phoria.js/phoria-util.js"></script>
-      <script src="/beslim.ai/phoria.js/phoria-entity.js"></script>
-      <script src="/beslim.ai/phoria.js/phoria-scene.js"></script>
-      <script src="/beslim.ai/phoria.js/phoria-renderer.js"></script>
-      <script src='/beslim.ai/phoria.js/dat.gui.min.js'></script>      
-      <script>
+    <head>
+        <meta charset="utf-8">
+        <title>##sessionId##-##attempt##</title>
+        <script src="/beslim.ai/phoria.js/gl-matrix.js"></script>
+        <script src="/beslim.ai/phoria.js/phoria-util.js"></script>
+        <script src="/beslim.ai/phoria.js/phoria-entity.js"></script>
+        <script src="/beslim.ai/phoria.js/phoria-scene.js"></script>
+        <script src="/beslim.ai/phoria.js/phoria-renderer.js"></script>
+        <script src='/beslim.ai/phoria.js/dat.gui.min.js'></script>
+        <script>
+            function refresh() {
+                var canvas = document.getElementById('canvas');
 
-var scene = null;
-var renderer = null;
+                var viewportWidth = ##viewportWidth##;
+                var viewportHeight = ##viewportHeight##;
 
-window.addEventListener('load', init, false);
-window.addEventListener("resize", refresh);
+                var width = window.innerHeight * (viewportWidth / viewportHeight);
+                if (window.innerHeight * viewportWidth <= window.innerWidth * viewportHeight) {
+                    width = window.innerHeight * (viewportWidth / viewportHeight);
+                    height = window.innerHeight;
+                } else {
+                    width = window.innerWidth;
+                    height = window.innerWidth * (viewportHeight / viewportWidth);
+                }
 
-function refresh() {
-   var canvas = document.getElementById('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                canvas.style.left = ((window.innerWidth - width) / 2) + "px";
+                canvas.style.top = ((window.innerHeight - height) / 2) + "px";
 
-   var viewportWidth = ##viewportWidth##;
-   var viewportHeight = ##viewportHeight##;
+                scene.perspective.aspect = width / height;
 
-   var width = window.innerHeight * (viewportWidth / viewportHeight);
-   if (window.innerHeight * viewportWidth <= window.innerWidth * viewportHeight) {
-       width = window.innerHeight * (viewportWidth / viewportHeight);
-       height = window.innerHeight;
-   } else {
-       width = window.innerWidth;
-       height = window.innerWidth * (viewportHeight / viewportWidth);
-   }
+                scene.viewport.width = width;
+                scene.viewport.height = height;
 
-   canvas.width = width;
-   canvas.height = height;
-   canvas.style.left = ((window.innerWidth - width) / 2) + "px";
-   canvas.style.top = ((window.innerHeight - height) / 2) + "px";
+                scene.modelView();
+                renderer.render(scene);
+            }
 
-   scene.perspective.aspect = width / height;
+            function crossProduct(a, b) {
+                var r = {};
 
-   scene.viewport.width = width;
-   scene.viewport.height = height;
+                r.x = a.y * b.z - a.z * b.y;
+                r.y = a.z * b.x - a.x * b.z;
+                r.z = a.x * b.y - a.y * b.x;
 
-   scene.modelView();
-   renderer.render(scene);
-}
+                return r;
+            }
 
-function init()
-{
-   // get the canvas DOM element and the 2D drawing context
-   var canvas = document.getElementById('canvas');
- 
-   document.body.style.margin = "0px";
-   document.body.style.overflow = "hidden";
- 
-   canvas.width = window.innerWidth;
-   canvas.height = window.innerHeight;
- 
-   // create the scene and setup camera, perspective and viewport
-   scene = new Phoria.Scene();
+            function dotProduct(a, b) {
+                return a.x * b.x + a.y * b.y + a.z * b.z;
+            }
 
-   scene.perspective.aspect = canvas.width / canvas.height;
+            function rotate(v, k, theta) {
+               var r = {};
 
-   // We can't set different xFov and yFov, so set sane one instead
-   scene.perspective.fov = 75.0
+               var c = crossProduct(k, v);
+               var d = dotProduct(k, v);
 
-   scene.viewport.width = canvas.width;
-   scene.viewport.height = canvas.height;
-   
-   renderer = new Phoria.CanvasRenderer(canvas);
-   
-   var maskPoints = ##maskPoints##;
+               var cos = Math.cos(theta);
 
-   var maskEdges = ##maskEdges##;
+               r.x = v.x * cos + c.x * Math.sin(theta) + k.x * d * (1.0 - cos);
+               r.y = v.y * cos + c.y * Math.sin(theta) + k.y * d * (1.0 - cos);
+               r.z = v.z * cos + c.z * Math.sin(theta) + k.z * d * (1.0 - cos);
 
-   var mask = Phoria.Entity.create({
-      points: maskPoints,
-      edges: maskEdges,
-      polygons: [],
-      style: {
-         drawmode: "wireframe",
-         shademode: "plain",
-         linewidth: 2.0,
-         objectsortmode: "back",
-         color: [0, 0, 255]
-      }
-   });
+               return r;
+            }
 
-   scene.graph.push(mask);
+            function normalize(v) {
+               var d = Math.sqrt(v.x ** 2 + v.y ** 2 + v.z ** 2);
 
-   scene.camera.position.x = ##cameraX##;
-   scene.camera.position.y = ##cameraY##;
-   scene.camera.position.z = ##cameraZ##;
+               return {x: v.x / d, y: v.y / d, z: v.z / d};
+            }
 
-   scene.camera.up.x = ##cameraUpX##;
-   scene.camera.up.y = ##cameraUpY##;
-   scene.camera.up.z = ##cameraUpZ##;
+            function neg(a) {
+               return {x: -a.x, y: -a.y, z: -a.z};
+            }
 
-   scene.camera.lookat.x = ##lookAtX##;
-   scene.camera.lookat.y = ##lookAtY##;
-   scene.camera.lookat.z = ##lookAtZ##;
+            function add(a, b) {
+               return {x: a.x + b.x, y: a.y + b.y, z: a.z + b.z};
+            }
 
+            function sub(a, b) {
+                return add(a, neg(b));
+            }
 
+            function mul(v, a) {
+                return {x: v.x * a, y: v.y * a, z: v.z * a};
+            }
 
-   var heading = 0.0;
-   var lookAt = vec3.fromValues(0,-5,15);
+            function update(t, s) {
+                t.x = s.x;
+                t.y = s.y;
+                t.z = s.z;
 
-   /**
-    * @param forward {vec3}   Forward movement offset
-    * @param heading {float}  Heading in Phoria.RADIANS
-    * @param lookAt {vec3}    Lookat projection offset from updated position
-    */
-   var fnPositionLookAt = function positionLookAt(forward, heading, lookAt) {
-      // recalculate camera position based on heading and forward offset
-      var pos = vec3.fromValues(
-         scene.camera.position.x,
-         scene.camera.position.y,
-         scene.camera.position.z);
-      var ca = Math.cos(heading), sa = Math.sin(heading);
-      var rx = forward[0]*ca - forward[2]*sa,
-          rz = forward[0]*sa + forward[2]*ca;
-      forward[0] = rx;
-      forward[2] = rz;
-      vec3.add(pos, pos, forward);
-      scene.camera.position.x = pos[0];
-      scene.camera.position.y = pos[1];
-      scene.camera.position.z = pos[2];
+                return t;
+            }
 
-      // calcuate rotation based on heading - apply to lookAt offset vector
-      rx = lookAt[0]*ca - lookAt[2]*sa,
-      rz = lookAt[0]*sa + lookAt[2]*ca;
-      vec3.add(pos, pos, vec3.fromValues(rx, lookAt[1], rz));
+            function calculateDirections() {
+                var f = normalize(sub(scene.camera.lookat, scene.camera.position));
 
-      // set new camera look at
-      scene.camera.lookat.x = pos[0];
-      scene.camera.lookat.y = pos[1];
-      scene.camera.lookat.z = pos[2];
+                directions.forward = f;
+                directions.back = neg(f);
 
-      scene.modelView();
-      renderer.render(scene);
-   }
-   
-   // key binding
-   document.addEventListener('keydown', function(e) {
-      switch (e.keyCode)
-      {
-         case 87: // W
-            // move forward along current heading
-            fnPositionLookAt(vec3.fromValues(0,0,1), heading, lookAt);
-            break;
-         case 83: // S
-            // move back along current heading
-            fnPositionLookAt(vec3.fromValues(0,0,-1), heading, lookAt);
-            break;
-         case 65: // A
-            // strafe left from current heading
-            fnPositionLookAt(vec3.fromValues(-1,0,0), heading, lookAt);
-            break;
-         case 68: // D
-            // strafe right from current heading
-            fnPositionLookAt(vec3.fromValues(1,0,0), heading, lookAt);
-            break;
-         case 37: // LEFT
-            // turn left
-            heading += Phoria.RADIANS*4;
-            // recalculate lookAt
-            // given current camera position, project a lookAt vector along current heading for N units
-            fnPositionLookAt(vec3.fromValues(0,0,0), heading, lookAt);
-            break;
-         case 39: // RIGHT
-            // turn right
-            heading -= Phoria.RADIANS*4;
-            // recalculate lookAt
-            // given current camera position, project a lookAt vector along current heading for N units
-            fnPositionLookAt(vec3.fromValues(0,0,0), heading, lookAt);
-            break;
-         case 38: // UP
-            lookAt[1]++;
-            fnPositionLookAt(vec3.fromValues(0,0,0), heading, lookAt);
-            break;
-         case 40: // DOWN
-            lookAt[1]--;
-            fnPositionLookAt(vec3.fromValues(0,0,0), heading, lookAt);
-            break;
-      }
-   }, false);
+                var up = normalize(scene.camera.up);
 
-   /*
-   KEY:
-   {
-      SHIFT:16, CTRL:17, ESC:27, RIGHT:39, UP:38, LEFT:37, DOWN:40, SPACE:32,
-      A:65, E:69, G:71, L:76, P:80, R:82, S:83, Z:90
-   },
-   */
+                var r = crossProduct(up, f);
 
-   refresh();
-}
-      </script>
-   </head>
-   
-   <body style="background-color: #bfbfbf">
-      <canvas id="canvas" style="background-color: #eee; position: absolute;"></canvas>
-   </body>
+                directions.right = r;
+                directions.left = neg(r);
+
+                var u = crossProduct(f, r)
+
+                directions.up = u;
+                directions.down = neg(u);
+            }
+
+            function applyStyle(o, s) {
+                o.style.drawmode = s.drawmode;
+                o.style.shademode = s.shademode;
+                o.style.opacity = s.opacity;
+            }
+
+            function control(e) {
+                var lv = sub(scene.camera.lookat, scene.camera.position);
+                var pd = {x: 0.0, y: 0.0, z: 0.0};
+
+                var u = update({}, scene.camera.up);
+
+                calculateDirections();
+
+                switch (e.keyCode)
+                {
+                    case 87: // W
+                        pd = mul(directions.forward, step);
+
+                        break;
+
+                    case 83: // S
+                        pd = mul(directions.back, step);
+
+                        break;
+                    case 65: // A
+                        pd = mul(directions.left, step);
+
+                        break;
+                    case 68: // D
+                        pd = mul(directions.right, step);
+
+                        break;
+                  case 82: // R
+                        pd = mul(directions.up, step);
+
+                        break;
+                  case 70: // F
+                        pd = mul(directions.down, step);
+
+                        break;
+                    case 73: // I
+                        u = rotate(scene.camera.up, directions.left, angle);
+                        lv = rotate(lv, directions.left, angle);
+
+                        break;
+
+                    case 75: // K
+                        u = rotate(scene.camera.up, directions.left, -angle);
+                        lv = rotate(lv, directions.left, -angle);
+
+                        break;
+
+                  case 76: // L
+                        u = rotate(scene.camera.up, directions.up, angle);
+                        lv = rotate(lv, directions.up, angle);
+
+                        break;
+
+                    case 74: // J
+                        u = rotate(scene.camera.up, directions.up, -angle);
+                        lv = rotate(lv, directions.up, -angle);
+
+                        break;
+
+                    case 77: // M
+                        u = rotate(scene.camera.up, directions.back, angle);
+
+                        break;
+
+                    case 78: // N
+                        u = rotate(scene.camera.up, directions.back, -angle);
+
+                        break;
+
+                    case 89: //Y
+                        maskStyle = (maskStyle + 1) % 3;
+                        applyStyle(mask, styles[maskStyle]);
+
+                        break;
+
+                    case 72: //H
+                        worldStyle = (worldStyle + 1) % 3;
+                        applyStyle(world, styles[worldStyle]);
+
+                        break;
+                }
+
+                update(scene.camera.position, add(scene.camera.position, pd));
+                update(scene.camera.lookat, add(scene.camera.position, lv));
+                update(scene.camera.up, u);
+
+                scene.modelView();
+                renderer.render(scene);
+            }
+
+            function init() {
+                var canvas = document.getElementById('canvas');
+
+                document.body.style.margin = "0px";
+                document.body.style.overflow = "hidden";
+
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+
+                scene = new Phoria.Scene();
+
+                scene.perspective.aspect = canvas.width / canvas.height;
+
+                scene.perspective.fov = ##cameraFov##;
+
+                scene.viewport.width = canvas.width;
+                scene.viewport.height = canvas.height;
+
+                renderer = new Phoria.CanvasRenderer(canvas);
+
+                var worldPoints = ##worldPoints##;
+                var worldEdges = ##worldEdges##;
+                var worldPolygons = ##worldPolygons##;
+
+                world = Phoria.Entity.create({
+                    points: worldPoints,
+                    edges: worldEdges,
+                    polygons: worldPolygons,
+                    style: {
+                       linewidth: 2.0,
+                       objectsortmode: "back",
+                       fillmode: "fill",
+                       doublesided: true,
+                       color: [0, 255, 0]
+                    }
+                });
+
+                scene.graph.push(world);
+
+                var maskPoints = ##maskPoints##;
+                var maskEdges = ##maskEdges##;
+                var maskPolygons = ##maskPolygons##;
+
+                mask = Phoria.Entity.create({
+                    points: maskPoints,
+                    edges: maskEdges,
+                    polygons: maskPolygons,
+                    style: {
+                       linewidth: 2.0,
+                       objectsortmode: "back",
+                       fillmode: "fill",
+                       doublesided: true,
+                       color: [0, 0, 255]
+                    }
+                });
+
+                scene.graph.push(mask);
+
+                scene.graph.push(new Phoria.DistantLight());
+
+                scene.camera.position.x = ##cameraX##;
+                scene.camera.position.y = ##cameraY##;
+                scene.camera.position.z = ##cameraZ##;
+
+                scene.camera.up.x = ##cameraUpX##;
+                scene.camera.up.y = ##cameraUpY##;
+                scene.camera.up.z = ##cameraUpZ##;
+
+                scene.camera.lookat.x = ##lookAtX##;
+                scene.camera.lookat.y = ##lookAtY##;
+                scene.camera.lookat.z = ##lookAtZ##;
+
+                document.addEventListener('keydown', control, false);
+
+                applyStyle(mask, styles[maskStyle]);
+                applyStyle(world, styles[worldStyle]);
+
+                refresh();
+            }
+
+            var scene = null;
+            var renderer = null;
+
+            var mask = null;
+            var world = null;
+
+            var styles = [
+               {
+                   drawmode: "wireframe",
+                   shademode: "plain",
+                   opacity: 1
+               },
+               {
+                   drawmode: "solid",
+                   shademode: "lightsource",
+                   opacity: 1
+               },
+               {
+                   drawmode: "point",
+                   shademode: "plain",
+                   opacity: 0
+               },
+            ];
+
+            window.addEventListener('load', init, false);
+            window.addEventListener('resize', refresh);
+
+            var step = 0.1;
+            var angle = Math.PI * 5.0 / 180.0;
+
+            var maskStyle = 0;
+            var worldStyle = 0;
+
+            var directions = {};
+        </script>
+    </head>
+
+    <body style="background-color: #bfbfbf">
+        <canvas id="canvas" style="background-color: #eee; position: absolute;"></canvas>
+    </body>
 </html>

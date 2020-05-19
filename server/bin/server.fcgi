@@ -188,11 +188,6 @@ def weight():
 
         product_classes.append(product_class)
 
-        if debug:
-            for row in snapshot.grid:
-                for coords in row.row:
-                    debug_image = cv2.circle(debug_image, (coords.vx, coords.vy), 2, (255, 0, 0), -1) 
-
         nearest_pairs = []
         for i in range(0, len(point_pairs)):
             nearest_pairs.append(([None, None], [None, None]))
@@ -211,46 +206,148 @@ def weight():
         if debug:
             scale = 10.0
 
+
+            world_point_index = {}
+            mask_point_index = {}
+
             mask_mesh_points = []
-            for (y, x) in mask_points:
-                coords = snapshot.grid[y].row[x]
+            world_mesh_points = []
 
-                debug_image = cv2.circle(debug_image, (coords.vx, coords.vy), 2, (0, 255, 255), -1)
+            im = 0
+            iw = 0
 
-                mask_mesh_points.append(
-                    '{{x: {:.3f}, y: {:.3f}, z: {:.3f}}}'.format(
-                        coords.x * scale, coords.y * scale, -coords.z * scale
-                    )
-                )
-
-            mask_mesh_points_string = '[ ' + ', '.join(mask_mesh_points) + ' ]'
-
-            mask_mesh_edges = []
             for y, row in enumerate(snapshot.grid):
                 for x, coords in enumerate(row.row):
                     if (y, x) in mask_points:
-                        if (y, x + 1) in mask_points:
-                            mask_mesh_edges.append('{{ a: {}, b: {} }}'.format(mask_points[(y, x)], mask_points[(y, x + 1)]));
+                        mask_point_index[(y, x)] = im
 
-                        if (y + 1, x) in mask_points:
-                            mask_mesh_edges.append('{{ a: {}, b: {} }}'.format(mask_points[(y, x)], mask_points[(y + 1, x)]))
+                        im += 1
 
-            mask_mesh_edges_string = '[ ' + ', '.join(mask_mesh_edges) + ' ]' 
+                        mask_mesh_points.append(
+                            '{{x: {:.3f}, y: {:.3f}, z: {:.3f}}}'.format(
+                                coords.x * scale, coords.y * scale, -coords.z * scale
+                            )
+                        )
+                    else:
+                        for y_ in range(max(0, y - 1), min(len(snapshot.grid), y + 2)):
+                            for x_ in range(max(0, x - 1), min(len(row.row), x + 2)):
+                                if (y_, x_) not in world_point_index:
+                                    world_point_index[(y_, x_)] = iw
+
+                                    coords_ = snapshot.grid[y_].row[x_]
+
+                                    world_mesh_points.append(
+                                        '{{x: {:.3f}, y: {:.3f}, z: {:.3f}}}'.format(
+                                            coords_.x * scale, coords_.y * scale, -coords_.z * scale
+                                        )
+                                    )
+
+                                    iw += 1
+
+
+            mask_mesh_edges = []
+            mask_mesh_polygons = []
+
+            for y, row in enumerate(snapshot.grid):
+                for x, coords in enumerate(row.row):
+                    if (y, x) in mask_points:
+                        debug_image = cv2.circle(debug_image, (coords.vx, coords.vy), 2, (255, 0, 0), -1)
+
+                        if (y, x + 1) in mask_point_index:
+                            mask_mesh_edges.append('{{a: {}, b: {}}}'.format(mask_point_index[(y, x)], mask_point_index[(y, x + 1)]));
+
+                            if (y + 1, x) in mask_point_index and (y + 1, x + 1) in mask_point_index:
+                                mask_mesh_polygons.append(
+                                    '{{vertices: [{}, {}, {}, {}]}}'.format(
+                                        mask_point_index[(y, x)],
+                                        mask_point_index[(y, x + 1)],
+                                        mask_point_index[(y + 1, x + 1)],
+                                        mask_point_index[(y + 1, x)]
+                                    )
+                                );
+
+                        if (y + 1, x) in mask_point_index:
+                            mask_mesh_edges.append('{{a: {}, b: {}}}'.format(mask_point_index[(y, x)], mask_point_index[(y + 1, x)]))
+                    else:
+                        debug_image = cv2.circle(debug_image, (coords.vx, coords.vy), 2, (0, 255, 0), -1)
+
+            mask_mesh_points_string = '[ ' + ', '.join(mask_mesh_points) + ' ]'
+            mask_mesh_edges_string = '[ ' + ', '.join(mask_mesh_edges) + ' ]'
+            mask_mesh_polygons_string = '[ ' + ', '.join(mask_mesh_polygons) + ' ]'
+
+
+            world_mesh_edges = []
+            world_mesh_polygons = []
+            for y, row in enumerate(snapshot.grid):
+                for x, coords in enumerate(row.row):
+                    if (y, x) in world_point_index:
+                        if (y, x + 1) in world_point_index:
+                            a = 0
+                            for j_ in range(-1, 2):
+                                if (y + j_, x) in mask_point_index:
+                                    a += 1
+
+                                if (y + j_, x + 1) in mask_point_index:
+                                    a += 1
+
+                            if a < 6:
+                                world_mesh_edges.append('{{a: {}, b: {}}}'.format(world_point_index[(y, x)], world_point_index[(y, x + 1)]));
+
+                            if (y + 1, x) in world_point_index and (y + 1, x + 1) in world_point_index:
+                                a = 0
+                                for i_ in range(0, 2):
+                                    for j_ in range(0, 2):
+                                        if (y + j_, x + i_) in mask_point_index:
+                                            a += 1
+
+                                if a < 4:
+                                    world_mesh_polygons.append(
+                                        '{{vertices: [{}, {}, {}, {}]}}'.format(
+                                            world_point_index[(y, x)],
+                                            world_point_index[(y, x + 1)],
+                                            world_point_index[(y + 1, x + 1)],
+                                            world_point_index[(y + 1, x)]
+                                        )
+                                    )
+
+                        if (y + 1, x) in world_point_index:
+                            a = 0
+                            for i_ in range(-1, 2):
+                                if (y, x + i_) in mask_point_index:
+                                    a += 1
+
+                                if (y + 1, x + i_) in mask_point_index:
+                                    a += 1
+
+                            if a < 6:
+                                world_mesh_edges.append('{{a: {}, b: {}}}'.format(world_point_index[(y, x)], world_point_index[(y + 1, x)]))
+
+            world_mesh_points_string = '[' + ', '.join(world_mesh_points) + ']'
+            world_mesh_edges_string = '[' + ', '.join(world_mesh_edges) + ']'
+            world_mesh_polygons_string = '[' + ', '.join(world_mesh_polygons) + ']'
+
 
             threeD_view = os.path.join(var_run_path, 'debug', '{}-{:02d}.html'.format(session_id, attempt))
             with open(threeD_view, 'wt') as f:
                 for line in threeD_view_template:
+                    line = line.replace('##sessionId##', session_id)
+                    line = line.replace('##attempt##', str(attempt))
+                    line = line.replace('##worldPoints##', world_mesh_points_string)
+                    line = line.replace('##worldEdges##', world_mesh_edges_string)
+                    line = line.replace('##worldPolygons##', world_mesh_polygons_string)
                     line = line.replace('##maskPoints##', mask_mesh_points_string)
                     line = line.replace('##maskEdges##', mask_mesh_edges_string)
+                    line = line.replace('##maskPolygons##', mask_mesh_polygons_string)
                     line = line.replace('##cameraX##', '{:.3f}'.format(snapshot.cameraX * scale))
                     line = line.replace('##cameraY##', '{:.3f}'.format(snapshot.cameraY * scale))
                     line = line.replace('##cameraZ##', '{:.3f}'.format(-snapshot.cameraZ * scale))
                     line = line.replace('##lookAtX##', '{:.3f}'.format(snapshot.lookAtX * scale))
                     line = line.replace('##lookAtY##', '{:.3f}'.format(snapshot.lookAtY * scale))
                     line = line.replace('##lookAtZ##', '{:.3f}'.format(-snapshot.lookAtZ * scale))
-                    line = line.replace('##cameraUpX##', '{:.3f}'.format(-snapshot.cameraUpX * scale))
-                    line = line.replace('##cameraUpY##', '{:.3f}'.format(-snapshot.cameraUpY * scale))
-                    line = line.replace('##cameraUpZ##', '{:.3f}'.format(snapshot.cameraUpZ * scale))
+                    line = line.replace('##cameraUpX##', '{:.3f}'.format(snapshot.cameraUpX * scale))
+                    line = line.replace('##cameraUpY##', '{:.3f}'.format(snapshot.cameraUpY * scale))
+                    line = line.replace('##cameraUpZ##', '{:.3f}'.format(-snapshot.cameraUpZ * scale))
+                    line = line.replace('##cameraFov##', '{:.3f}'.format(snapshot.cameraFov))
                     line = line.replace('##viewportWidth##', '{:d}'.format(decoded_image.shape[1]))
                     line = line.replace('##viewportHeight##', '{:d}'.format(decoded_image.shape[0]))
 
