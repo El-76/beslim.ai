@@ -145,8 +145,7 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         cameraZ: Float,
         cameraUpX: Float,
         cameraUpY: Float,
-        cameraUpZ: Float,
-        cameraFov: Float
+        cameraUpZ: Float
     ) -> Bool {
         let orientation = UIApplication.shared.statusBarOrientation
 
@@ -183,30 +182,24 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
         snapshot.cameraUpY = cameraUpY
         snapshot.cameraUpZ = cameraUpZ
         
-        snapshot.cameraFov = cameraFov
+        let centerVX = Int(vSize.width / 2)
+        let centerVY = Int(vSize.height / 2)
         
-        let centerX = Int(vSize.width / 2)
-        let centerY = Int(vSize.height / 2)
+        var centerTopX = Float(0.0)
+        var centerTopY = Float(0.0)
+        var centerTopZ = Float(0.0)
         
-        var htest = self.sceneView.hitTest(
-            CGPoint(x: centerX, y: centerY), types: [.featurePoint]
-        ).first
+        var centerBottomX = Float(0.0)
+        var centerBottomY = Float(0.0)
+        var centerBottomZ = Float(0.0)
         
-        if (htest == nil) {
-            return false
-        }
-        
-        snapshot.lookAtX = htest!.worldTransform.columns.3.x
-        snapshot.lookAtY = htest!.worldTransform.columns.3.y
-        snapshot.lookAtZ = htest!.worldTransform.columns.3.z
-        
-        let startX = centerX % gridStep
-        let startY = centerY % gridStep
+        let startX = centerVX % gridStep
+        let startY = centerVY % gridStep
         for y in stride(from: startY, to: Int(vSize.height), by: gridStep) {
             var row = Beslim_Ai_Row()
             
             for x in stride(from: startX, to: Int(vSize.width), by: gridStep) {
-                htest = self.sceneView.hitTest(CGPoint(x: x, y: y), types: [.featurePoint]).first
+                let htest = self.sceneView.hitTest(CGPoint(x: x, y: y), types: [.featurePoint]).first
     
                 if (htest == nil) {
                     return false
@@ -221,11 +214,40 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
                 coords.y = htest!.worldTransform.columns.3.y
                 coords.z = htest!.worldTransform.columns.3.z
                 
+                if (x == centerVX && y == centerVY) {
+                    snapshot.lookAtX = coords.x
+                    snapshot.lookAtY = coords.y
+                    snapshot.lookAtZ = coords.z
+                }
+                
+                if (x == centerVX) {
+                    if (y == startY) {
+                        centerTopX = coords.x - cameraX
+                        centerTopY = coords.y - cameraY
+                        centerTopZ = coords.z - cameraZ
+                    } else {
+                        centerBottomX = coords.x - cameraX
+                        centerBottomY = coords.y - cameraY
+                        centerBottomZ = coords.z - cameraZ
+                    }
+                }
+                
                 row.row.append(coords)
             }
             
             snapshot.grid.append(row)
         }
+        
+        let dotProductY = (
+            centerBottomX * centerTopX + centerBottomY * centerTopY + centerBottomZ * centerTopZ
+        )
+        let normBottom = sqrt(
+            centerBottomX * centerBottomX + centerBottomY * centerBottomY + centerBottomZ * centerBottomZ
+        )
+        let normTop = sqrt(
+            centerTopX * centerTopX + centerTopY * centerTopY + centerTopZ * centerTopZ
+        )
+        snapshot.cameraFov = acos(dotProductY / (normBottom * normTop)) * 180.0 / Float.pi
         
         snapshot.photo = photo
         
@@ -300,14 +322,6 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
                 
                 self.statusLabel.text = "Taking snapshots..."
                 
-                let imageResolution = frame.camera.imageResolution
-                let intrinsics = frame.camera.intrinsics
-                let xFovDegrees
-                    = 2.0 * atan(Float(imageResolution.width) / (2.0 * intrinsics[0, 0])) * 180.0 / Float.pi
-                let yFovDegrees
-                    = 2.0 * atan(Float(imageResolution.height) / (2.0 * intrinsics[1, 1])) * 180.0 / Float.pi
-                let fovDegrees = (xFovDegrees + yFovDegrees) / 2.0
-                
                 var cameraUpX = Float(0.0)
                 var cameraUpY = Float(0.0)
                 var cameraUpZ = Float(0.0)
@@ -336,8 +350,7 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
                     cameraZ: cameraPosition[3, 2],
                     cameraUpX: cameraUpX,
                     cameraUpY: cameraUpY,
-                    cameraUpZ: cameraUpZ,
-                    cameraFov: fovDegrees
+                    cameraUpZ: cameraUpZ
                 )
             
                 self.state = State.mappingWorld
