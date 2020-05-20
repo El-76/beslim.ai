@@ -17,7 +17,6 @@ from flup.server.fcgi import WSGIServer
 
 import config
 import maskrcnn
-import unet
 
 import SegmentInMessage_pb2
 import SegmentOutMessage_pb2
