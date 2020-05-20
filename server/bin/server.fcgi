@@ -27,8 +27,8 @@ import WeightOutMessage_pb2
 def stub_load():
     pass
 
-def stub_classify(data, session, graph, debug_files=None):
-    return 'Unknown', []
+def stub_classify(decoded_image, grid, session, graph, debug=False):
+    return 'Unknown', [], set(), decoded_image
 
 application = flask.Flask(__name__)
 

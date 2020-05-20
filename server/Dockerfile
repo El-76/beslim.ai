@@ -80,8 +80,6 @@ COPY etc/* /opt/beslim.ai/etc/
 
 RUN cat /opt/beslim.ai/etc/mask_rcnn_config_train_0022.h5.* > /opt/beslim.ai/etc/mask_rcnn_config_train_0022.h5 \
     && rm -f /opt/beslim.ai/etc/mask_rcnn_config_train_0022.h5.*
-RUN cat /opt/beslim.ai/etc/unet_v1.h5.* > /opt/beslim.ai/etc/unet_v1.h5 \
-    && rm -f /opt/beslim.ai/etc/unet_v1.h5.*
 
 RUN ln -s /opt/beslim.ai/etc/beslim.ai.conf /etc/nginx/conf.d/beslim.ai.conf
 
