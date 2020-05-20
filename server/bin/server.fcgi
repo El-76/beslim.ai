@@ -34,7 +34,6 @@ application = flask.Flask(__name__)
 var_run_path = '/opt/beslim.ai/var/run/'
 
 models = {
-    'unet': {'load': unet.load, 'classify': unet.classify},
     'mrcnn': {'load': maskrcnn.load, 'classify': maskrcnn.classify}
 }
 
