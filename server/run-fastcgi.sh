@@ -2,7 +2,7 @@
 
 cd `dirname $0`
 
-if [ `docker info 2>/dev/null | fgrep Runtimes | fgrep -o nvidia` == "nvidia" ]; then
+if [ "`docker info 2>/dev/null | fgrep Runtimes | fgrep -o nvidia`" == "nvidia" ]; then
     RUNTIME="--runtime=nvidia"
 else
     RUNTIME=""
