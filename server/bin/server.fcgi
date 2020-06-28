@@ -1,5 +1,7 @@
 #!/usr/bin/python3 -u
 
+import config
+
 import cv2
 import datetime
 import flask
@@ -15,7 +17,6 @@ import time
 
 from flup.server.fcgi import WSGIServer
 
-import config
 import maskrcnn
 
 import SegmentInMessage_pb2
@@ -377,11 +378,12 @@ def weight():
 
     widths = []
     heights = []
+    alphas = []
     density = 100.0
     total_width = 0.0
     total_height = 0.0
     n = 0.0
-    for product_class, grid_point_pairs in zip(product_classes, grid_point_pair_lists):
+    for product_class, grid_point_pairs, snapshot in zip(product_classes, grid_point_pair_lists, message.snapshots):
         if product_class == 'Hamburger':
             if len(grid_point_pairs) == 2:
                 pair_w = grid_point_pairs[0]
@@ -400,6 +402,26 @@ def weight():
 
                 total_width += width
                 total_height += height
+
+
+                lookAt = numpy.array([snapshot.lookAtX, snapshot.lookAtY, snapshot.lookAtZ])
+                camera = numpy.array([snapshot.cameraX, snapshot.cameraY, snapshot.cameraZ])
+                cameraUp = numpy.array([snapshot.cameraUpX, snapshot.cameraUpY, snapshot.cameraUpZ])
+                cameraUp /= numpy.linalg.norm(cameraUp)
+
+                forward = (lookAt - camera) / numpy.linalg.norm(lookAt - camera)
+                backward = -forward
+                right = numpy.cross(cameraUp, forward)
+                left = -right
+                up = numpy.cross(forward, right)
+                down = -up
+
+                gravity = numpy([0.0, -1.0, 0.0])
+
+                alpha = numpy.arccos(numpy.dot(gravity, down) / (numpy.linalg.norm(gravity) * numpy.linalg.norm(down)))
+
+                alphas.append(alpha)
+ 
 
                 n += 1.0
             else:
@@ -429,11 +451,12 @@ def weight():
             f.write('time: {0:.3f}s\n'.format((classified_at - start) / 1000.0))
             f.write('model: {}\n\n'.format(model))
 
-            for attempt, (product_class, width, height) in enumerate(zip(product_classes, widths, heights)):
+            for attempt, (product_class, width, height, alpha) in enumerate(zip(product_classes, widths, heights, alphas)):
                 f.write('attempt #{:02d}\n'.format(attempt))
                 f.write('product class: {}\n'.format(product_class))
                 f.write('width: ' + ('{0:.3f}'.format(width) if width else 'n/a') + '\n')
                 f.write('height: ' + ('{0:.3f}'.format(height) if height else 'n/a') + '\n\n')
+                f.write('height: ' + ('{0:.3f}'.format(alpha) if alpha else 'n/a') + '\n\n')
 
             f.write('product class: {}\n'.format(result_product_class))
             f.write('weight: ' + ('{0:.3f}\n'.format(weight) if weight else 'n/a'))
