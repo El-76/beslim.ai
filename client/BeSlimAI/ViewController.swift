@@ -131,6 +131,7 @@ class ViewController: UIViewController, ARSCNViewDelegate, ARSessionDelegate {
     
     func resumeSession() {
         let configuration = ARWorldTrackingConfiguration()
+        configuration.worldAlignment = .gravity
         
         // Restart the view's session
         self.sceneView.session.run(configuration, options: [ARSession.RunOptions.resetTracking, ARSession.RunOptions.removeExistingAnchors])
