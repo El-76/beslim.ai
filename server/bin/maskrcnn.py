@@ -40,45 +40,6 @@ def classify(decoded_image, grid, session, graph, debug=False):
     min_y = shape[1]
     max_y = -1
 
-    if len(class_ids) == 1:
-        c = {0: 'Unknown', 1: 'Apple', 2: 'Hamburger', 3: 'Pizza'}[class_ids[0]]
-        
-        if c == 'Unknown':
-            point_pairs = []
-            mask_points = set()
-        else:
-            mask_points = set()
-            for j, row in enumerate(grid):
-                for i, coords in enumerate(row.row):
-                    if masks[coords.vy][coords.vx][0]:
-                        mask_points.add((j, i,))
-
-            bbox = rois[0]
-            center_x = (bbox[1] + bbox[3]) // 2
-            center_y = (bbox[0] + bbox[2]) // 2
-
-            for x in range(min(bbox[1], bbox[3]), max(bbox[1], bbox[3])):
-                if masks[center_y][x][0]:
-                    if x < min_x:
-                        min_x = x
-
-                    if x > max_x:
-                        max_x = x
-
-            for y in range(min(bbox[0], bbox[2]), max(bbox[0], bbox[2])):
-                if masks[y][center_x][0]:
-                    if y < min_y:
-                        min_y = y
-
-                    if y > max_y:
-                        max_y = y
-
-            point_pairs = [((min_x, center_y),  (max_x, center_y)), ((center_x, min_y), (center_x, max_y))]
-    else:
-        c = 'Unknown'
-        point_pairs = []
-        mask_points = set()
-
     if debug:
         masked_image = decoded_image
 
@@ -86,11 +47,9 @@ def classify(decoded_image, grid, session, graph, debug=False):
             cv2.rectangle(masked_image, (roi[1], roi[0]), (roi[3], roi[2]), (0, 255, 255), 2)
 
             apply_mask(masked_image, masks[:, :, i], (0, 255, 0))
-
-            for pair in point_pairs:
-               for center in pair:
-                   masked_image = cv2.circle(masked_image, center, 15, (0, 0, 255), -1)
     else:
         masked_image = None
 
-    return c, point_pairs, mask_points, masked_image
+    product_classes = [{0: 'Unknown', 1: 'Apple', 2: 'Hamburger', 3: 'Pizza'}[class_id] for class_id in class_ids]
+
+    return product_classes, masks, masked_image

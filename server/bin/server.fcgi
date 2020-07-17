@@ -169,7 +169,14 @@ def weight():
     start = int(time.time() * 1000.0)
 
     product_classes = []
-    grid_point_pair_lists = []
+
+    data = []
+
+    density = 100.0
+    total_width = 0.0
+    total_height = 0.0
+    n = 0.0
+
     for attempt, snapshot in enumerate(message.snapshots):
         image_type = imghdr.what(None, snapshot.photo)
 
@@ -181,26 +188,20 @@ def weight():
                 decoded_image
             )
 
-        product_class, point_pairs, mask_points, debug_image = (
+        detected_product_classes, masks, debug_image = (
             classify(decoded_image, snapshot.grid, session, graph, debug)
         )
 
+        product_class = detected_product_classes[0] if len(detected_product_classes) == 1 else 'Unknown'
+
+        mask_points = set()
+        if product_class != 'Unknown':
+            for j, row in enumerate(snapshot.grid):
+                for i, coords in enumerate(row.row):
+                    if masks[coords.vy][coords.vx][0]:
+                        mask_points.add((j, i,))
+
         product_classes.append(product_class)
-
-        nearest_pairs = []
-        for i in range(0, len(point_pairs)):
-            nearest_pairs.append(([None, None], [None, None]))
-
-        for (y, x) in mask_points:
-            for i, pair in enumerate(point_pairs):
-                for j, point in enumerate(pair):
-                    coords = snapshot.grid[y].row[x]
-
-                    distance = (coords.vx - point[0]) ** 2 + (coords.vy - point[1]) ** 2
-                    min_distance = nearest_pairs[i][j][0]
-                    if min_distance is None or min_distance > distance:
-                        nearest_pairs[i][j][0] = distance
-                        nearest_pairs[i][j][1] = coords
 
         if debug:
             scale = 10.0
@@ -352,19 +353,145 @@ def weight():
 
                     f.write(line)
 
-        grid_point_pairs = []
-        for nearest_pair in nearest_pairs:
-            if (nearest_pair[0][0] is not None) and (nearest_pair[1][0] is not None):
-                grid_point_pairs.append((nearest_pair[0][1], nearest_pair[1][1]))
+        if product_class == 'Hamburger' and len(mask_points) > 0:
+            min_x = None
+            max_x = None
+            min_y = None
+            max_y = None
+            for (y, x) in mask_points:
+                coords = snapshot.grid[y].row[x]
 
-        grid_point_pair_lists.append(grid_point_pairs)
+                if min_x is None or min_x > coords.vx:
+                    min_x = coords.vx
+
+                if max_x is None or max_x < coords.vx:
+                    max_x = coords.vx
+
+                if min_y is None or min_y > coords.vy:
+                    min_y = coords.vy
+
+                if max_y is None or max_y < coords.vy:
+                    max_y = coords.vy
+
+            center = None
+            min_dist = None
+            for (y, x) in mask_points:
+                coords = snapshot.grid[y].row[x]
+
+                dist = (coords.vx - (max_x + min_x) / 2.0) ** 2 + (coords.vy - (max_y + min_y) / 2.0) ** 2
+                if min_dist is None or min_dist > dist:
+                    min_dist = dist
+
+                    center = coords
+
+            top = None
+            bottom = None
+            left = None
+            right = None
+            for (y, x) in mask_points:
+                coords = snapshot.grid[y].row[x]
+
+                if (left is None or coords.vx < left.vx) and coords.vy == center.vy:
+                    left = coords
+
+                if (right is None or coords.vx > right.vx) and coords.vy == center.vy:
+                    right = coords
+
+                if (top is None or coords.vy < top.vy) and coords.vx == center.vx:
+                    top = coords
+
+                if (bottom is None or coords.vy > bottom.vy) and coords.vx == center.vx:
+                    bottom = coords
+
+            if debug:
+                for grid_point in (left, top, right, bottom, center):
+                    debug_image = cv2.circle(
+                        debug_image, (grid_point.vx, grid_point.vy), 2, (0, 0, 255), -1
+                    )
+
+
+            width = math.sqrt(
+                (left.x - right.x) ** 2 + (left.y - right.y) ** 2 + (left.z - right.z) ** 2
+            )
+
+            height = math.sqrt(
+                (top.x - bottom.x) ** 2 + (top.y - bottom.y) ** 2 + (top.z - bottom.z) ** 2
+            )
+
+            total_width += width
+            total_height += height
+
+
+            lookAt = numpy.array([snapshot.lookAtX, snapshot.lookAtY, snapshot.lookAtZ])
+            camera = numpy.array([snapshot.cameraX, snapshot.cameraY, snapshot.cameraZ])
+            cameraUp = numpy.array([snapshot.cameraUpX, snapshot.cameraUpY, snapshot.cameraUpZ])
+            cameraUp /= numpy.linalg.norm(cameraUp)
+
+            forward = (lookAt - camera) / numpy.linalg.norm(lookAt - camera)
+            #backward = -forward
+            #right = numpy.cross(cameraUp, forward)
+            #left = -right
+            #up = numpy.cross(forward, right)
+            #down = -up
+            down = -numpy.cross(forward, numpy.cross(cameraUp, forward))
+
+            gravity = numpy.array([0.0, -1.0, 0.0])
+
+            alpha = numpy.arccos(numpy.dot(gravity, down) / (numpy.linalg.norm(gravity) * numpy.linalg.norm(down)))
+
+            l = math.sqrt(
+                (snapshot.cameraX - center.x) ** 2 + (snapshot.cameraY - center.y) ** 2 + (snapshot.cameraZ - center.z) ** 2
+            ) 
+
+            beta = numpy.arcsin(numpy.dot(gravity, forward) / (numpy.linalg.norm(gravity) * numpy.linalg.norm(forward)))
+
+            q = (center.vy - top.vy) / (bottom.vy - center.vy)
+            s = (bottom.vy - top.vy) / (right.vx - left.vx)
+
+            EB_ = q * s * width / (q + 1)
+            EF_ = s * width / (q + 1)
+
+            EF = (
+                (-l * EF_ *(math.sin(beta - alpha) * (-l * math.sin(beta) + EF_ * math.cos(alpha)) + (l * math.cos(alpha) - EF_ * math.sin(beta))))
+                / ((l * math.sin(beta) + EF_ * math.cos(alpha)) ** 2 - (EF_ ** 2 + 2 * EF_ * l * math.sin(beta - alpha) + l**2))
+            )
+            EB = (
+                (-l * EB_ * (math.sin(beta - alpha) * (-l * math.sin(beta) - EB_ * math.cos(alpha)) + (l * math.cos(alpha) + EB_ * math.sin(beta))))
+                / ((-l * math.sin(beta) + EB_ * math.cos(alpha)) ** 2 - (EB_ ** 2 - 2 * EB_ * l * math.sin(beta - alpha) + l**2))
+            )
+
+            p = EB / EF
+            r = (EB + EF) / width
+
+            estimatedHeight = width * (r - max(0, ((1 + p) * l * math.sin(beta) - r * width) / ((1 + p) * l * math.cos(beta))))
+
+
+            n += 1.0
+        else:
+            width = None
+            height = None
+            alpha = None
+            l = None
+            beta = None
+            q = None
+            s = None
+            p = None
+            r = None
+            estimatedHeight = None
 
         if debug:
-            for grid_point_pair in grid_point_pairs:
-                for grid_point in grid_point_pair:
-                    debug_image = cv2.circle(
-                        debug_image, (grid_point.vx, grid_point.vy), 2, (255, 255, 0), -1
-                    )
+            data.append({
+                'width': width,
+                'height': height,
+                'alpha': alpha,
+                'l': l,
+                'beta': beta,
+                'q': q,
+                's': s,
+                'p': p,
+                'r': r,
+                'estimatedHeight': estimatedHeight
+            })
 
         if debug:
             cv2.imwrite(
@@ -372,76 +499,20 @@ def weight():
                 debug_image
             )
 
-    classified_at = int(time.time() * 1000.0)
+    if n > 0:
+        avg_width = total_width / n
+        avg_height = total_height / n
+
+        weight = (3.14 * avg_width * avg_width / 8.0) * avg_height * density * 1000.0
+    else:
+        weight = None
 
     result_product_class = product_classes[0] if len(set(product_classes)) == 1 else 'Unknown'
 
-    widths = []
-    heights = []
-    alphas = []
-    density = 100.0
-    total_width = 0.0
-    total_height = 0.0
-    n = 0.0
-    for product_class, grid_point_pairs, snapshot in zip(product_classes, grid_point_pair_lists, message.snapshots):
-        if product_class == 'Hamburger':
-            if len(grid_point_pairs) == 2:
-                pair_w = grid_point_pairs[0]
-                p1 = pair_w[0]
-                p2 = pair_w[1]
-                width = math.sqrt(
-                    (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2 + (p1.z - p2.z) ** 2
-                )
-
-                pair_h = grid_point_pairs[1]
-                p1 = pair_h[0]
-                p2 = pair_h[1]
-                height = math.sqrt(
-                    (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2 + (p1.z - p2.z) ** 2
-                )
-
-                total_width += width
-                total_height += height
-
-
-                lookAt = numpy.array([snapshot.lookAtX, snapshot.lookAtY, snapshot.lookAtZ])
-                camera = numpy.array([snapshot.cameraX, snapshot.cameraY, snapshot.cameraZ])
-                cameraUp = numpy.array([snapshot.cameraUpX, snapshot.cameraUpY, snapshot.cameraUpZ])
-                cameraUp /= numpy.linalg.norm(cameraUp)
-
-                forward = (lookAt - camera) / numpy.linalg.norm(lookAt - camera)
-                backward = -forward
-                right = numpy.cross(cameraUp, forward)
-                left = -right
-                up = numpy.cross(forward, right)
-                down = -up
-
-                gravity = numpy([0.0, -1.0, 0.0])
-
-                alpha = numpy.arccos(numpy.dot(gravity, down) / (numpy.linalg.norm(gravity) * numpy.linalg.norm(down)))
-
-                alphas.append(alpha)
- 
-
-                n += 1.0
-            else:
-                width = None
-                height = None
-
-            if debug:
-                widths.append(width)
-                heights.append(height)
-
-        if n > 0:
-            avg_width = total_width / n
-            avg_height = total_height / n
-
-            weight = (3.14 * avg_width * avg_width / 8.0) * avg_height * density * 1000.0
-        else:
-            weight = None
-
     if result_product_class != 'Hamburger':
         weight = None
+
+    classified_at = int(time.time() * 1000.0)
 
     if debug:
         debug_file = os.path.join(var_run_path, 'debug', '{}.txt'.format(session_id))
@@ -451,12 +522,19 @@ def weight():
             f.write('time: {0:.3f}s\n'.format((classified_at - start) / 1000.0))
             f.write('model: {}\n\n'.format(model))
 
-            for attempt, (product_class, width, height, alpha) in enumerate(zip(product_classes, widths, heights, alphas)):
+            for attempt, (product_class, d) in enumerate(zip(product_classes, data)):
                 f.write('attempt #{:02d}\n'.format(attempt))
                 f.write('product class: {}\n'.format(product_class))
-                f.write('width: ' + ('{0:.3f}'.format(width) if width else 'n/a') + '\n')
-                f.write('height: ' + ('{0:.3f}'.format(height) if height else 'n/a') + '\n\n')
-                f.write('height: ' + ('{0:.3f}'.format(alpha) if alpha else 'n/a') + '\n\n')
+                f.write('width: ' + ('{0:.3f}'.format(d['width']) if d['width'] else 'n/a') + '\n')
+                f.write('height: ' + ('{0:.3f}'.format(d['height']) if d['height'] else 'n/a') + '\n')
+                f.write('alpha: ' + ('{0:.3f}'.format(d['alpha']) if d['alpha'] else 'n/a') + '\n')
+                f.write('l: ' + ('{0:.3f}'.format(d['l']) if d['l'] else 'n/a') + '\n')
+                f.write('beta: ' + ('{0:.3f}'.format(d['beta']) if d['beta'] else 'n/a') + '\n')
+                f.write('q: ' + ('{0:.3f}'.format(d['q']) if d['q'] else 'n/a') + '\n')
+                f.write('s: ' + ('{0:.3f}'.format(d['s']) if d['s'] else 'n/a') + '\n')
+                f.write('p: ' + ('{0:.3f}'.format(d['p']) if d['p'] else 'n/a') + '\n')
+                f.write('r: ' + ('{0:.3f}'.format(d['r']) if d['r'] else 'n/a') + '\n')
+                f.write('estimatedHeight: ' + ('{0:.3f}'.format(d['estimatedHeight']) if d['estimatedHeight'] else 'n/a') + '\n\n')
 
             f.write('product class: {}\n'.format(result_product_class))
             f.write('weight: ' + ('{0:.3f}\n'.format(weight) if weight else 'n/a'))
