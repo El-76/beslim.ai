@@ -173,9 +173,6 @@ def weight():
     data = []
 
     density = 100.0
-    total_width = 0.0
-    total_height = 0.0
-    n = 0.0
 
     for attempt, snapshot in enumerate(message.snapshots):
         image_type = imghdr.what(None, snapshot.photo)
@@ -418,9 +415,6 @@ def weight():
                 (top.x - bottom.x) ** 2 + (top.y - bottom.y) ** 2 + (top.z - bottom.z) ** 2
             )
 
-            total_width += width
-            total_height += height
-
 
             lookAt = numpy.array([snapshot.lookAtX, snapshot.lookAtY, snapshot.lookAtZ])
             camera = numpy.array([snapshot.cameraX, snapshot.cameraY, snapshot.cameraZ])
@@ -465,8 +459,6 @@ def weight():
 
             estimatedHeight = width * (r - max(0, ((1 + p) * l * math.sin(beta) - r * width) / ((1 + p) * l * math.cos(beta))))
 
-
-            n += 1.0
         else:
             width = None
             height = None
@@ -479,19 +471,18 @@ def weight():
             r = None
             estimatedHeight = None
 
-        if debug:
-            data.append({
-                'width': width,
-                'height': height,
-                'alpha': alpha,
-                'l': l,
-                'beta': beta,
-                'q': q,
-                's': s,
-                'p': p,
-                'r': r,
-                'estimatedHeight': estimatedHeight
-            })
+        data.append({
+            'width': width,
+            'height': height,
+            'alpha': alpha,
+            'l': l,
+            'beta': beta,
+            'q': q,
+            's': s,
+            'p': p,
+            'r': r,
+            'estimatedHeight': estimatedHeight
+        })
 
         if debug:
             cv2.imwrite(
@@ -499,18 +490,27 @@ def weight():
                 debug_image
             )
 
-    if n > 0:
-        avg_width = total_width / n
-        avg_height = total_height / n
+    success_ratio = 0.9
+    outlier_quantiles = [0.09, 0.91]
+    hamburgerData = [d for (d, p) in zip(data, product_classes) if p == 'Hamburger']
+    if len(hamburgerData) >= int(len(message.snapshots) * success_ratio):
+        widths = numpy.array([d['width'] for d in hamburgerData])
+        quantiles = numpy.quantile(widths, outlier_quantiles)
+        widths = widths[(widths >= quantiles[0]) & (widths <= quantiles[1])]
 
-        weight = (3.14 * avg_width * avg_width / 8.0) * avg_height * density * 1000.0
+        estimatedHeights = numpy.array([d['estimatedHeight'] for d in hamburgerData])
+        quantiles = numpy.quantile(estimatedHeights, outlier_quantiles)
+        estimatedHeights = estimatedHeights[(estimatedHeights >= quantiles[0]) & (estimatedHeights <= quantiles[1])]
+
+        weight = (
+            (3.14 * numpy.average(widths) ** 2.0 / 8.0) * numpy.average(estimatedHeights) * density * 1000.0
+        )
+
+        result_product_class = 'Hamburger'
     else:
         weight = None
+        result_product_class = 'Unknown'
 
-    result_product_class = product_classes[0] if len(set(product_classes)) == 1 else 'Unknown'
-
-    if result_product_class != 'Hamburger':
-        weight = None
 
     classified_at = int(time.time() * 1000.0)
 
