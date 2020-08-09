@@ -172,7 +172,7 @@ def weight():
 
     data = []
 
-    density = 100.0
+    density = 967.97
 
     for attempt, snapshot in enumerate(message.snapshots):
         image_type = imghdr.what(None, snapshot.photo)
